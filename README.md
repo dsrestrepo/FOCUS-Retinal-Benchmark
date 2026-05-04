@@ -501,6 +501,42 @@ All model examples assume the required checkpoints are already present in the Hu
 
 ## Notes
 
+- Dataset access and model terms must be accepted upstream before running the download jobs. Useful access links:
+
+  Dataset sources:
+
+  - BRSET: https://physionet.org/content/brazilian-ophthalmological/1.0.0/
+  - mBRSET: https://physionet.org/content/mbrset/1.0/
+  - PAPILA: https://figshare.com/articles/dataset/PAPILA/14798004
+  - RFMiD: https://www.kaggle.com/datasets/andrewmvd/retinal-disease-classification
+  - RFMiD 2.0: https://zenodo.org/records/7505822
+  - IDRiD mirror used by the downloader: https://zenodo.org/records/17219542
+  - Messidor-2 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/mariaherrerot/messidor2preprocess
+  - G1020 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/arnavjain1/glaucoma-datasets
+  - JSIEC1000 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/linchundan/fundusimage1000
+
+  Hugging Face model pages:
+
+  - Gemma 3 27B: https://huggingface.co/google/gemma-3-27b-it
+  - MedGemma 4B: https://huggingface.co/google/medgemma-4b-it
+  - MedGemma 1.5 4B: https://huggingface.co/google/medgemma-1.5-4b-it
+  - MedGemma 27B: https://huggingface.co/google/medgemma-27b-it
+  - Qwen3-VL 8B: https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct
+  - LLaVA-Llama3 8B: https://huggingface.co/llava-hf/llama3-llava-next-8b-hf
+  - MedSigLIP: https://huggingface.co/google/medsiglip-448
+  - SigLIP2: https://huggingface.co/google/siglip2-base-patch16-224
+  - CLIP ViT-B/32: https://huggingface.co/openai/clip-vit-base-patch32
+  - FLAIR: https://huggingface.co/jusiro2/FLAIR
+  - ViT-L/16: https://huggingface.co/google/vit-large-patch16-224
+  - DINOv2 Large: https://huggingface.co/facebook/dinov2-large
+  - DINOv3 ViT-L/16: https://huggingface.co/facebook/dinov3-vitl16-pretrain-lvd1689m
+  - RETFound MAE Nature CFP: https://huggingface.co/YukunZhou/RETFound_mae_natureCFP
+  - RETFound MAE Nature OCT: https://huggingface.co/YukunZhou/RETFound_mae_natureOCT
+  - RETFound MAE MEH: https://huggingface.co/YukunZhou/RETFound_mae_meh
+  - RETFound MAE Shanghai: https://huggingface.co/YukunZhou/RETFound_mae_shanghai
+  - RETFound DINOv2 MEH: https://huggingface.co/YukunZhou/RETFound_dinov2_meh
+  - RETFound DINOv2 Shanghai: https://huggingface.co/YukunZhou/RETFound_dinov2_shanghai
+
 - Dataset access terms remain the responsibility of the user. The downloader automates retrieval only where credentials or public mirrors allow it.
 - Some model checkpoints are gated and require accepting upstream terms before `download_*` jobs can cache them.
 - The benchmark expects prepared data under `$DATA_PATH` and cached models under `$HF_HOME`; evaluation and training jobs intentionally run offline.
