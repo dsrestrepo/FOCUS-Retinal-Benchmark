@@ -1,0 +1,88 @@
+# macOS / editor noise
+.DS_Store
+._*
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Local environments and secrets
+.env
+.env.*
+!.env.example
+config/paths.env
+*.pem
+*.key
+*credentials*.json
+*service-account*.json
+*token*.json
+vertext-vlm-*.json
+
+# Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+eda/
+Split_Data/split.ipynb
+update_transformers.sh
+
+# Slurm / runtime logs
+logs/
+*.out
+*.err
+slurm-*.out
+
+# Benchmark outputs and generated analysis
+results/
+outputs/
+wandb/
+mlruns/
+
+# Model/data artifacts that should be fetched or regenerated
+checkpoints/
+models/
+data/
+datasets/
+ext_repos/**/.git/
+ext_repos/**/__pycache__/
+ext_repos/**/*.egg-info/
+ext_repos/**/pretrain_weights/
+ext_repos/**/checkpoints/
+ext_repos/**/logs/
+ext_repos/**/outputs/
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.onnx
+*.npy
+*.npz
+*.pkl
+*.pickle
+
+# Local scratch and manuscript build artifacts
+temp/
+presentation/
+paper/
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
+
+# Dependency snapshots generated during local experiments
+requirements_backup.txt

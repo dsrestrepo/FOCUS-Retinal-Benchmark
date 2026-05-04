@@ -1,0 +1,67 @@
+models:
+  # HuggingFace General Models
+  - "google/vit-large-patch16-224"
+  - "facebook/dinov2-large"
+  - "facebook/dinov3-vitl16-pretrain-lvd1689m"
+
+  # HuggingFace Ophthalmic Models
+  - "YukunZhou/RETFound_mae_natureCFP"
+  - "YukunZhou/RETFound_mae_natureOCT"
+  - "YukunZhou/RETFound_mae_meh"
+  - "YukunZhou/RETFound_mae_shanghai"
+  - "YukunZhou/RETFound_dinov2_meh"
+  - "YukunZhou/RETFound_dinov2_shanghai"
+  
+  # External Repo Models
+  - "VisionFM-Fundus"
+
+datasets:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "g1020"
+  - "jsiec1000"
+
+tasks:
+  - "binary_dr"
+  - "referable_dr"
+  - "glaucoma"
+
+dataset_tasks:
+  brset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  mbrset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  papila:
+    - "glaucoma"
+  rfmid:
+    - "binary_dr"
+    - "referable_dr"
+  rfmid_2:
+    - "binary_dr"
+    - "referable_dr"
+  idrid:
+    - "binary_dr"
+    - "referable_dr"
+  messidor_2:
+    - "binary_dr"
+    - "referable_dr"
+  g1020:
+    - "glaucoma"
+  jsiec1000:
+    - "binary_dr"
+    - "referable_dr"
+
+eval_methods:
+  - "linear_probing"
+  # - "zero_shot" # CV models might not support zero-shot unless aligned with text
+
+pooling: "cls" # "cls" or "gap"

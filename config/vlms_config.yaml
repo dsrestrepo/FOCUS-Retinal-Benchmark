@@ -1,0 +1,59 @@
+models:
+  # HuggingFace Models
+  - "google/medsiglip-448"
+  - "google/siglip2-base-patch16-224"
+  - "openai/clip-vit-base-patch32"
+  
+  # External Repo Models
+  - "EyeCLIP"
+  - "RET-CLIP"
+  - "FLAIR"
+
+datasets:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "g1020"
+  - "jsiec1000"
+
+tasks:
+  - "binary_dr"
+  - "referable_dr"
+  - "glaucoma"
+
+dataset_tasks:
+  brset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  mbrset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  papila:
+    - "glaucoma"
+  rfmid:
+    - "binary_dr"
+    - "referable_dr"
+  rfmid_2:
+    - "binary_dr"
+    - "referable_dr"
+  idrid:
+    - "binary_dr"
+    - "referable_dr"
+  messidor_2:
+    - "binary_dr"
+    - "referable_dr"
+  g1020:
+    - "glaucoma"
+  jsiec1000:
+    - "binary_dr"
+    - "referable_dr"
+
+eval_methods:
+  - "zero_shot"
+  - "linear_probing"

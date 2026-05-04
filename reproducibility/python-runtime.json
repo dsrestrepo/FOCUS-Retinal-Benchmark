@@ -1,0 +1,8 @@
+{
+  "conda_env": "llms",
+  "machine": "x86_64",
+  "platform": "Linux-5.14.0-570.58.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "processor": "x86_64",
+  "python_implementation": "CPython",
+  "python_version": "3.12.12 | packaged by conda-forge | (main, Oct 13 2025, 14:34:15) [GCC 14.3.0]"
+}

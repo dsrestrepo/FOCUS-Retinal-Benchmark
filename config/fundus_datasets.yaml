@@ -1,0 +1,349 @@
+datasets:
+  brset:
+    name: BRSET
+    status: included
+    modality: color_fundus
+    geography: Brazil
+    task_family: multilabel_disease_and_demographics
+    demographics: age, sex, diabetes history
+    access: physionet_credentialed
+    license: PhysioNet credentialed data-use agreement
+    download:
+      method: physionet
+      url: https://physionet.org/files/brazilian-ophthalmological/1.0.0/
+      storage_dir: BRSET/brset
+      prepared_paths:
+        - labels_brset.csv
+        - labels_splits.csv
+        - images_224
+        - prepared/manifest.csv
+      prepare: brset
+    notes: Current benchmark dataset. Requires PhysioNet credentialing.
+    evaluation:
+      fairness:
+        attributes:
+          - name: age
+            column: patient_age
+            type: age
+          - name: sex
+            column: patient_sex
+            type: sex
+      robustness:
+        attributes:
+          - name: image_quality
+            column: quality
+            type: categorical
+            positive_values:
+              - Adequate
+            positive_label: adequate
+            negative_label: inadequate
+            min_group_size: 5
+
+  mbrset:
+    name: mBRSET
+    status: included
+    modality: color_fundus
+    geography: Brazil
+    task_family: clinical_and_demographic_prediction
+    demographics: age, sex, self-reported demographic/clinical variables where available
+    access: physionet_credentialed
+    license: PhysioNet credentialed data-use agreement
+    download:
+      method: physionet
+      url: https://physionet.org/files/mbrset/1.0/
+      storage_dir: mBRSET/mbrset
+      prepared_paths:
+        - labels_mbrset.csv
+        - labels_splits.csv
+        - images_224
+        - prepared/manifest.csv
+      prepare: mbrset
+    notes: Current benchmark dataset. Requires PhysioNet credentialing.
+    evaluation:
+      fairness:
+        attributes:
+          - name: age
+            column: age
+            type: age
+          - name: sex
+            column: sex
+            type: sex
+      robustness:
+        attributes:
+          - name: image_quality
+            column: final_quality
+            type: categorical
+            positive_values:
+              - "yes"
+              - "true"
+              - "1"
+            positive_label: "yes"
+            negative_label: "no"
+            min_group_size: 5
+
+  papila:
+    name: PAPILA
+    status: included
+    modality: color_fundus
+    geography: Spain
+    task_family: glaucoma_classification_and_disc_cup_segmentation
+    demographics: age, sex
+    access: open
+    license: GPL-3.0+
+    download:
+      method: figshare
+      doi: 10.6084/m9.figshare.14798004
+      storage_dir: PAPILA
+      prepared_paths:
+        - labels_papila.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: papila
+    notes: Strong non-Brazilian demographic fundus dataset.
+    evaluation:
+      fairness:
+        attributes:
+          - name: age
+            column: clinical_age
+            type: age
+          - name: sex
+            column: clinical_gender
+            type: sex
+
+  rfmid:
+    name: RFMiD
+    status: included
+    modality: color_fundus
+    geography: India
+    task_family: multi_disease_classification
+    demographics: none_public
+    access: open_or_registration
+    license: CC-BY-4.0 in data descriptor; Kaggle mirrors vary.
+    download:
+      method: kaggle
+      slug: andrewmvd/retinal-disease-classification
+      storage_dir: RFMiD
+      prepared_paths:
+        - labels_rfmid.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: rfmid
+    notes: Broad disease coverage. Prefer official Grand Challenge/RIADD source when available.
+
+  rfmid_2:
+    name: RFMiD 2.0
+    status: included
+    modality: color_fundus
+    geography: India
+    task_family: multi_disease_classification
+    demographics: none_public
+    access: open
+    license: CC-BY-4.0
+    download:
+      method: zenodo
+      record_id: "7505822"
+      storage_dir: RFMiD_2
+      prepared_paths:
+        - labels_rfmid_2.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: rfmid_2
+    notes: Auxiliary RFMiD release with 860 images and 49 labels.
+
+  idrid:
+    name: IDRiD
+    status: included
+    modality: color_fundus
+    geography: India
+    task_family: diabetic_retinopathy_dme_grading_lesion_segmentation
+    demographics: none_public
+    access: open_mirror
+    license: CC-BY-4.0 in Zenodo mirror; original IEEE DataPort.
+    download:
+      method: zenodo
+      record_id: "17219542"
+      url: https://ieee-dataport.org/open-access/indian-diabetic-retinopathy-image-dataset-idrid
+      mirror_url: https://zenodo.org/records/17219542
+      storage_dir: IDRiD
+      prepared_paths:
+        - labels_idrid.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: idrid
+    notes: Official source is IEEE DataPort. The script uses a Zenodo re-upload of the original ZIP files for reproducible download.
+
+  messidor_2:
+    name: Messidor-2
+    status: included
+    modality: color_fundus
+    geography: France
+    task_family: diabetic_retinopathy_dme_grading
+    demographics: none_public
+    access: open_with_form_or_kaggle_mirror
+    license: Original consortium terms; Kaggle mirrors often list unknown license.
+    download:
+      method: kaggle
+      slug: mariaherrerot/messidor2preprocess
+      storage_dir: Messidor-2
+      prepared_paths:
+        - labels_messidor_2.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: messidor_2
+    notes: Use as performance-only dataset. Keep the license caveat in the audit table.
+
+  refuge:
+    name: REFUGE
+    status: included_optional_manual
+    modality: color_fundus
+    geography: China/multicenter challenge
+    task_family: glaucoma_classification_disc_cup_segmentation_fovea_localization
+    demographics: none_public
+    access: open_with_registration
+    license: Challenge terms
+    download:
+      method: manual
+      url: https://refuge.grand-challenge.org/
+      storage_dir: REFUGE
+      prepared_paths:
+        - prepared/manifest.csv
+      prepare: refuge
+    notes: Download requires Grand Challenge registration/terms. A REFUGE copy is bundled in the G1020 Kaggle mirror, but the benchmark currently uses only the G1020 subset; add REFUGE manually if it should be evaluated as its own dataset.
+
+  g1020:
+    name: G1020
+    status: included
+    modality: color_fundus
+    geography: Germany/clinical
+    task_family: glaucoma_classification_and_disc_cup_segmentation
+    demographics: none_public
+    access: open_mirror
+    license: Unknown in original listing; CC-BY-NC-4.0 in combined Kaggle mirror.
+    download:
+      method: kaggle
+      slug: arnavjain1/glaucoma-datasets
+      storage_dir: G1020
+      prepared_paths:
+        - labels_g1020.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: g1020
+    notes: Kaggle mirror also contains ORIGA and REFUGE; we use only G1020.
+
+  jsiec1000:
+    name: JSIEC1000
+    status: included
+    modality: color_fundus
+    geography: China
+    task_family: 39_class_fundus_disease_classification
+    demographics: none_public
+    access: open_registration
+    license: Open Database License / Database Contents License on Kaggle
+    download:
+      method: kaggle
+      slug: linchundan/fundusimage1000
+      storage_dir: JSIEC1000
+      prepared_paths:
+        - labels_jsiec1000.csv
+        - labels.csv
+        - prepared/manifest.csv
+      prepare: jsiec1000
+    notes: Useful disease breadth slice.
+
+  palm:
+    name: PALM
+    status: included
+    modality: color_fundus
+    geography: China
+    task_family: pathologic_myopia_and_lesion_segmentation
+    demographics: none_public
+    access: open_with_registration
+    license: Challenge terms
+    download:
+      method: manual
+      url: https://palm.grand-challenge.org/
+      storage_dir: PALM
+      prepared_paths:
+        - prepared/manifest.csv
+      prepare: palm
+    notes: Include if pathologic myopia is in scope.
+
+  acrima:
+    name: ACRIMA
+    status: included_optional
+    modality: color_fundus
+    geography: Spain
+    task_family: glaucoma_classification
+    demographics: none_public
+    access: open_mirror
+    license: Mirror dependent
+    download:
+      method: kaggle
+      slug: arnavjain1/glaucoma-datasets
+      storage_dir: ACRIMA
+    notes: Secondary glaucoma slice; verify original source terms before paper release.
+
+  drishti_gs:
+    name: Drishti-GS
+    status: included_optional
+    modality: color_fundus
+    geography: India
+    task_family: glaucoma_disc_cup_segmentation
+    demographics: none_public
+    access: open_registration
+    license: Challenge terms
+    download:
+      method: manual
+      url: https://cvit.iiit.ac.in/projects/mip/drishti-gs/mip-dataset2/Home.php
+      storage_dir: Drishti-GS
+    notes: Small but useful for optic disc/cup segmentation.
+
+  rim_one:
+    name: RIM-ONE / RIM-ONE DL
+    status: included_optional
+    modality: color_fundus
+    geography: Spain
+    task_family: glaucoma_classification_and_disc_segmentation
+    demographics: none_public
+    access: open
+    license: Check original release terms
+    download:
+      method: manual
+      url: https://medimrg.webs.ull.es/
+      storage_dir: RIM-ONE
+    notes: Secondary glaucoma slice.
+
+excluded:
+  eyepacs:
+    name: EyePACS / Kaggle DR
+    reason: Explicitly documented as RETFound color-fundus pretraining data.
+  airogs:
+    name: AIROGS
+    reason: Documented in public retinal foundation-model pretraining mixtures.
+  ddr:
+    name: DDR
+    reason: Documented in public retinal foundation-model pretraining mixtures.
+  odir:
+    name: ODIR-5K / ODIR-2019
+    reason: Has age and sex, but documented in public retinal foundation-model pretraining mixtures.
+  harvard_fairvlmed:
+    name: Harvard-FairVLMed / Harvard-FairSeg
+    reason: Useful fairness data, but SLO rather than standard color fundus photography.
+  uk_biobank:
+    name: UK Biobank retinal imaging
+    reason: Strong demographics, but controlled access rather than open benchmark download.
+  areds:
+    name: AREDS / AREDS2
+    reason: Strong AMD cohort, but controlled dbGaP-style access rather than open benchmark download.
+  nhanes:
+    name: NHANES raw retinal images
+    reason: Demographic-rich survey, but raw images are not a simple open download.
+  seed:
+    name: Singapore Epidemiology of Eye Diseases
+    reason: Strong multiethnic cohort, but requires collaboration/access approval.
+  meh_midas:
+    name: MEH-MIDAS
+    reason: Not open and documented in RETFound-style pretraining.
+  sdpp:
+    name: SDPP
+    reason: Not open and documented in retinal foundation-model pretraining.

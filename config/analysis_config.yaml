@@ -1,0 +1,103 @@
+model_groups:
+  cv_general:
+    - "google/vit-large-patch16-224"
+    - "facebook/dinov2-large"
+    - "facebook/dinov3-vitl16-pretrain-lvd1689m"
+  cv_ophthalmo:
+    - "YukunZhou/RETFound_mae_natureCFP"
+    - "YukunZhou/RETFound_mae_natureOCT"
+    - "YukunZhou/RETFound_mae_meh"
+    - "YukunZhou/RETFound_mae_shanghai"
+    - "YukunZhou/RETFound_dinov2_meh"
+    - "YukunZhou/RETFound_dinov2_shanghai"
+    - "VisionFM-Fundus"
+  vlm_general:
+    - "google/medsiglip-448"
+    - "google/siglip2-base-patch16-224"
+    - "openai/clip-vit-base-patch32"
+  vlm_ophthalmo:
+    - "EyeCLIP"
+    - "RET-CLIP"
+    - "FLAIR"
+  mllm_general:
+    - "google/gemma-3-27b-it"
+    - "Qwen/Qwen3-VL-8B-Instruct"
+    - "llava-hf/llama3-llava-next-8b-hf"
+  mllm_medical:
+    - "google/medgemma-27b-it"
+    - "google/medgemma-4b-it"
+    - "google/medgemma-1.5-4b-it"
+
+metrics:
+  performance:
+    - "accuracy"
+    - "f1_score"
+    - "roc_auc"
+    - "auprc"
+  calibration:
+    - "ece"
+  fairness:
+    - "demographic_parity"
+    - "equalized_odds"
+  robustness:
+    - "domain_shift"
+
+fairness_attributes:
+  brset:
+    - "patient_age"
+    - "patient_sex"
+  mbrset:
+    - "age"
+    - "sex"
+  papila:
+    - name: age
+      column: clinical_age
+      type: age
+    - name: sex
+      column: clinical_gender
+      type: sex
+
+tasks:
+  - "binary_dr"
+  - "referable_dr"
+  - "glaucoma"
+
+datasets:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "g1020"
+  - "jsiec1000"
+
+dataset_tasks:
+  brset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  mbrset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  papila:
+    - "glaucoma"
+  rfmid:
+    - "binary_dr"
+    - "referable_dr"
+  rfmid_2:
+    - "binary_dr"
+    - "referable_dr"
+  idrid:
+    - "binary_dr"
+    - "referable_dr"
+  messidor_2:
+    - "binary_dr"
+    - "referable_dr"
+  g1020:
+    - "glaucoma"
+  jsiec1000:
+    - "binary_dr"
+    - "referable_dr"

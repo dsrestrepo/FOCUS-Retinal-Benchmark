@@ -1,0 +1,87 @@
+models:
+  - "google/gemma-3-27b-it"
+  - "google/medgemma-4b-it"
+  - "google/medgemma-1.5-4b-it"
+  - "llava-hf/llama3-llava-next-8b-hf"
+  - "Qwen/Qwen3-VL-8B-Instruct"
+  - "google/medgemma-27b-it"
+  
+  #- "moonshotai/Kimi-VL-A3B-Instruct"
+  #- "meta-llama/Llama-3.2-11B-Vision-Instruct"
+datasets:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "g1020"
+  - "jsiec1000"
+tasks:
+  - "binary_dr" 
+  - "referable_dr"
+  - "glaucoma"
+
+dataset_tasks:
+  brset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  mbrset:
+    - "binary_dr"
+    - "referable_dr"
+    - "glaucoma"
+  papila:
+    - "glaucoma"
+  rfmid:
+    - "binary_dr"
+    - "referable_dr"
+  rfmid_2:
+    - "binary_dr"
+    - "referable_dr"
+  idrid:
+    - "binary_dr"
+    - "referable_dr"
+  messidor_2:
+    - "binary_dr"
+    - "referable_dr"
+  g1020:
+    - "glaucoma"
+  jsiec1000:
+    - "binary_dr"
+    - "referable_dr"
+
+train_datasets:
+  - "brset"
+  - "mbrset"
+
+train_tasks:
+  - "binary_dr"
+  - "referable_dr"
+  - "glaucoma"
+strategies:
+  - "base"
+sft_strategies:
+  - "base"
+grpo_strategies:
+  - "base_grpo"
+quantization: "16b"
+use_unsloth: false
+
+# Optional: use these only for fine-tuned adapter evaluation, to test whether
+# SFT/GRPO adapters generalize beyond the datasets/tasks used for training.
+eval_datasets_ft:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "g1020"
+  - "jsiec1000"
+eval_tasks_ft:
+  - "binary_dr"
+  - "referable_dr"
+  - "glaucoma"
