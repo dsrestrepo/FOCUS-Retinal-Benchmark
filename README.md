@@ -499,52 +499,6 @@ print(output.get("token_probs", {}))
 
 All model examples assume the required checkpoints are already present in the Hugging Face cache or under `ext_repos/`, because the benchmark is designed to run offline after the download stage.
 
-## Preparing The Anonymous Repo
-
-Before creating the public benchmark repository:
-
-1. Run the reproducibility export after the final environment is ready. If `reproducibility/` already contains files from a local/private run, overwrite them with this job before committing:
-
-```bash
-sbatch jobs/setup/export_reproducibility.sh
-```
-
-2. Confirm that ignored files are not staged:
-
-```bash
-git status --short --ignored
-```
-
-3. Make sure nested git metadata in vendored model code is not published as accidental embedded repositories. If `ext_repos/*/.git` exists, either remove those nested `.git` directories before adding files, or intentionally convert the dependencies to submodules. For this benchmark, vendoring the patched code as normal source files is usually the simplest option.
-
-4. Add only source, configuration templates, documentation, split CSVs, and reproducibility files:
-
-```bash
-git add README.md .gitignore .env.example requirements.txt reproducibility/
-git add retina_bench scripts jobs config docs Split_Data ext_repos logo
-git status --short
-```
-
-5. Verify that the following do not appear in staged changes:
-
-```text
-.env
-config/paths.env
-logs/
-results/
-paper/
-presentation/
-temp/
-datasets/
-data/
-models/
-checkpoints/
-*.pt, *.pth, *.ckpt, *.bin, *.safetensors
-service-account or token JSON files
-```
-
-6. Create the repository and push the anonymous submission branch.
-
 ## Notes
 
 - Dataset access terms remain the responsibility of the user. The downloader automates retrieval only where credentials or public mirrors allow it.
