@@ -4,7 +4,11 @@
 
 FOCUS is an anonymous retinal foundation-model benchmark for evaluating computer vision models, vision-language models, and multimodal large language models on color fundus tasks. The benchmark covers zero-shot evaluation, linear probing, calibration, subgroup analysis, and LoRA adaptation with supervised fine-tuning (SFT) and GRPO.
 
-The full pipeline is summarized in [logo/benchmark_overview.pdf](logo/benchmark_overview.pdf). An interactive arena is available at:
+The full pipeline is summarized below and in [logo/benchmark_overview.pdf](logo/benchmark_overview.pdf).
+
+![FOCUS benchmark overview](logo/benchmark_overview.png)
+
+An interactive arena is available at:
 
 https://huggingface.co/spaces/focus-retina-benchmark/focus-retinal-benchmark-arena
 
@@ -339,6 +343,161 @@ Set `PYTHONPATH` from the repository root when running scripts directly:
 ```bash
 export PYTHONPATH="${PYTHONPATH:-}:."
 ```
+
+## Programmatic Use
+
+The benchmark modules can also be used directly when you want to build custom experiments, reuse the curated fundus loaders, or extract model embeddings outside the Slurm evaluation grid.
+
+### Load A Dataset
+
+`RetinaDataset` normalizes the supported fundus datasets into a common row interface. `base_dir` should be the same path used as `DATA_PATH` in `config/paths.env`.
+
+```python
+from retina_bench.core.data import RetinaDataset
+
+dataset = RetinaDataset(
+    base_dir="/path/to/fundus/datasets",
+    dataset_name="brset",
+    split="test",
+)
+
+print(len(dataset))
+row = dataset.get_row(0)
+image = dataset.get_image(0)
+
+print(row[["image_id", "split", "DR_2_Class", "Task_Referable"]])
+print(image.size)
+```
+
+For BRSET and mBRSET, the loader expects the split files prepared by `scripts/download_fundus_datasets.py`:
+
+```text
+$DATA_PATH/BRSET/brset/labels_splits.csv
+$DATA_PATH/mBRSET/mbrset/labels_splits.csv
+```
+
+### Extract Image Embeddings From CV Models
+
+Image-only foundation models live under `retina_bench.cv`. They expose `get_image_embeddings(images)`.
+
+```python
+import torch
+
+from retina_bench.core.data import RetinaDataset
+from retina_bench.cv.models import get_cv_model
+
+data = RetinaDataset("/path/to/fundus/datasets", "papila", split="test")
+images = [data.get_image(i) for i in range(4)]
+
+model = get_cv_model(
+    "facebook/dinov2-large",
+    device="cuda",
+    pooling="cls",  # or "gap"
+)
+
+with torch.no_grad():
+    image_embeddings = model.get_image_embeddings(images)
+
+print(image_embeddings.shape)
+```
+
+The same interface is used for supported ophthalmic CV encoders such as RETFound and VisionFM, provided their weights have already been downloaded:
+
+```python
+model = get_cv_model("YukunZhou/RETFound_mae_natureCFP", device="cuda")
+embeddings = model.get_image_embeddings(images)
+```
+
+### Extract Image And Text Embeddings From VLMs
+
+Vision-language models live under `retina_bench.vlms`. They expose both image and text embedding methods, which makes them useful for retrieval, custom zero-shot classifiers, and embedding export.
+
+```python
+import torch
+
+from retina_bench.core.data import RetinaDataset
+from retina_bench.vlms.models import get_vlm_model
+
+data = RetinaDataset("/path/to/fundus/datasets", "brset", split="test")
+images = [data.get_image(i) for i in range(8)]
+
+texts = [
+    "a fundus photograph with diabetic retinopathy",
+    "a fundus photograph without diabetic retinopathy",
+]
+
+model = get_vlm_model("google/medsiglip-448", device="cuda")
+
+with torch.no_grad():
+    image_embeddings = model.get_image_embeddings(images)
+    text_embeddings = model.get_text_embeddings(texts)
+    logits = image_embeddings @ text_embeddings.T
+    probabilities = logits.softmax(dim=-1)
+
+print(probabilities)
+```
+
+External ophthalmic VLMs use the same methods:
+
+```python
+model = get_vlm_model("EyeCLIP", device="cuda")
+image_embeddings = model.get_image_embeddings(images)
+text_embeddings = model.get_text_embeddings(texts)
+```
+
+### Run MLLM Inference
+
+MLLM wrappers live in `retina_bench.mllms.models`. The helper below mirrors the class selection used by the benchmark evaluator.
+
+```python
+from retina_bench.core.data import RetinaDataset
+from retina_bench.mllms.evaluate import get_model_class
+from retina_bench.mllms import prompts
+
+dataset_name = "brset"
+task = "referable_dr"
+model_id = "google/medgemma-4b-it"
+
+data = RetinaDataset("/path/to/fundus/datasets", dataset_name, split="test")
+row = data.get_row(0)
+image = data.get_image(0)
+
+prompt_func = prompts.get_prompt_func(dataset_name, task, "base")
+prompt = prompt_func(row)
+
+ModelClass = get_model_class(model_id)
+model = ModelClass(
+    model_id=model_id,
+    quantization="16b",
+    use_flash_attention=True,
+)
+
+output = model.generate(
+    prompt=prompt,
+    image=image,
+    max_new_tokens=32,
+    do_sample=False,
+)
+
+print(output["text"])
+```
+
+For calibrated binary classification, you can request first-token scores for task labels when the underlying wrapper supports returning generation scores:
+
+```python
+output = model.generate(
+    prompt=prompt,
+    image=image,
+    max_new_tokens=4,
+    return_logits=True,
+    tokens=["yes", "no", "Yes", "No"],
+    do_sample=False,
+)
+
+print(output.get("token_probs", {}))
+```
+
+All model examples assume the required checkpoints are already present in the Hugging Face cache or under `ext_repos/`, because the benchmark is designed to run offline after the download stage.
 
 ## Preparing The Anonymous Repo
 
