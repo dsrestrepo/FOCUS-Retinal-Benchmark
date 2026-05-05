@@ -1,7 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=install_dependencies
-#SBATCH --account=dtn@cpu
-#SBATCH --partition=compil
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -15,24 +13,29 @@ set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 mkdir -p logs
 
-# Clean modules
-module purge
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-llms}"
+PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
+MAX_JOBS="${MAX_JOBS:-4}"
 
-# Load required modules
-module load miniforge/24.9.0
-module load gcc/11.4.1
-module load cuda/12.4.1
-module load cudnn/9.2.0.82-cuda
-module load nccl/2.21.5-1-cuda
+if [[ "${SKIP_MODULES:-0}" != "1" ]] && type module >/dev/null 2>&1; then
+    module purge
+    module load "${MINIFORGE_MODULE:-miniforge/24.9.0}"
+    module load "${GCC_MODULE:-gcc/11.4.1}"
+    module load "${CUDA_MODULE:-cuda/12.4.1}"
+    module load "${CUDNN_MODULE:-cudnn/9.2.0.82-cuda}"
+    module load "${NCCL_MODULE:-nccl/2.21.5-1-cuda}"
+fi
 
-# Initialize conda
 eval "$(conda shell.bash hook)"
-conda activate llms
+if ! conda env list | awk '{print $1}' | grep -qx "${CONDA_ENV_NAME}"; then
+    conda create -n "${CONDA_ENV_NAME}" "python=${PYTHON_VERSION}" -y
+fi
+conda activate "${CONDA_ENV_NAME}"
 
 echo "Installing FOCUS benchmark GPU dependencies..."
-echo "Job ID: $SLURM_JOB_ID"
+echo "Job ID: ${SLURM_JOB_ID:-local}"
 echo "Python: $(which python)"
-echo "NVCC: $(nvcc --version)"
+echo "NVCC: $(nvcc --version 2>/dev/null || echo unavailable)"
 echo "Conda env: ${CONDA_DEFAULT_ENV:-unknown}"
 
 python --version
@@ -45,18 +48,11 @@ python -m pip install \
     torchaudio==2.6.0 \
     --index-url https://download.pytorch.org/whl/cu124
 
-echo "Installing non-GPU-pinned Python dependencies..."
-python -m pip install -r requirements.txt
-
 echo "Installing flash-attn after PyTorch is available..."
-export MAX_JOBS="${MAX_JOBS:-4}"
 python -m pip install flash-attn==2.8.3 --no-build-isolation
 
-echo "Installing GPU packages tied to the PyTorch stack..."
-python -m pip install \
-    xformers==0.0.29.post3 \
-    triton==3.2.0 \
-    torchao==0.16.0
+echo "Installing remaining Python dependencies..."
+python -m pip install -r requirements.txt
 
 echo "Installed GPU stack:"
 python - <<'PY'
