@@ -4,8 +4,6 @@
 
 FOCUS is an anonymous retinal foundation-model benchmark for evaluating computer vision models, vision-language models, and multimodal large language models on color fundus tasks. The benchmark covers zero-shot evaluation, linear probing, calibration, subgroup analysis, and LoRA adaptation with supervised fine-tuning (SFT) and GRPO.
 
-The full pipeline is summarized below and in [logo/benchmark_overview.pdf](logo/benchmark_overview.pdf).
-
 ![FOCUS benchmark overview](logo/benchmark_overview.png)
 
 An interactive arena is available at:
@@ -89,22 +87,6 @@ sbatch install_packages.sh
 The Slurm scripts assume a module-based HPC environment and may need local edits to the `#SBATCH` headers or module names. `install_packages.sh` accepts environment overrides such as `CONDA_ENV_NAME`, `PYTHON_VERSION`, `MINIFORGE_MODULE`, `CUDA_MODULE`, `CUDNN_MODULE`, `NCCL_MODULE`, and `SKIP_MODULES=1`.
 
 `requirements.txt` intentionally excludes `torch`, `torchvision`, `torchaudio`, and the `nvidia-*-cu12` runtime wheels because PyTorch should be installed first with the CUDA 12.4 wheel command above. Some download jobs install small helper packages such as `kaggle`, `gdown`, `pillow`, or editable external repos when needed.
-
-To export an exact reproducibility snapshot from the active cluster environment:
-
-```bash
-sbatch jobs/setup/export_reproducibility.sh
-```
-
-This writes:
-
-```text
-reproducibility/requirements.lock.txt
-reproducibility/environment.lock.yml
-reproducibility/conda-explicit-spec.txt
-reproducibility/python-runtime.json
-reproducibility/environment-report.txt
-```
 
 ## 2. Paths And Credentials
 
