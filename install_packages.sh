@@ -10,6 +10,11 @@
 #SBATCH --error=logs/install_dependencies.err
 #SBATCH --hint=nomultithread
 
+set -euo pipefail
+
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+mkdir -p logs
+
 # Clean modules
 module purge
 
@@ -24,44 +29,51 @@ module load nccl/2.21.5-1-cuda
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-# Create logs directory
-mkdir -p logs
-
-echo "Starting flash-attn installation..."
+echo "Installing FOCUS benchmark GPU dependencies..."
 echo "Job ID: $SLURM_JOB_ID"
 echo "Python: $(which python)"
 echo "NVCC: $(nvcc --version)"
+echo "Conda env: ${CONDA_DEFAULT_ENV:-unknown}"
 
-# Set environment variables to help with compilation
-# Limit parallel jobs to avoid OOM or thrashing on shared nodes
-#export MAX_JOBS=4
-#export FLASH_ATTENTION_FORCE_BUILD="TRUE"
-# Force compatibility with PyTorch's default ABI (0)
-#export GLIBCXX_USE_CXX11_ABI=0 
-
-# Install with verbose output to track progress
-#pip uninstall -y flash-attn
-#pip install flash-attn --no-build-isolation --no-cache-dir -v
-
-#pip install google-genai==1.29.0
-
-echo See dependencied and version in the envieronment:
 python --version
+python -m pip --version
 
-# Force uninstall vllm to prevent conflicts
-#pip uninstall -y vllm
+echo "Installing PyTorch CUDA 12.4 stack used in the benchmark experiments..."
+python -m pip install \
+    torch==2.6.0 \
+    torchvision==0.21.0 \
+    torchaudio==2.6.0 \
+    --index-url https://download.pytorch.org/whl/cu124
 
-# Re-install PyTorch with correct CUDA 12.4 dependencies to fix shared library errors
-#pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124 --force-reinstall
+echo "Installing non-GPU-pinned Python dependencies..."
+python -m pip install -r requirements.txt
 
-# Install correct dependencies from the fixed requirements file
-#pip install -r requirements.txt
+echo "Installing flash-attn after PyTorch is available..."
+export MAX_JOBS="${MAX_JOBS:-4}"
+python -m pip install flash-attn==2.8.3 --no-build-isolation
 
-#pip install --upgrade peft
+echo "Installing GPU packages tied to the PyTorch stack..."
+python -m pip install \
+    xformers==0.0.29.post3 \
+    triton==3.2.0 \
+    torchao==0.16.0
 
-#pip install kernels triton 
+echo "Installed GPU stack:"
+python - <<'PY'
+import importlib
+import torch
 
-# update requiriments.txt file
-#pip freeze > requirements.txt
+print(f"torch={torch.__version__}")
+print(f"torch.version.cuda={torch.version.cuda}")
+print(f"cuda_available={torch.cuda.is_available()}")
+for name in ("torchvision", "torchaudio", "flash_attn", "xformers", "triton"):
+    try:
+        mod = importlib.import_module(name)
+        print(f"{name}={getattr(mod, '__version__', 'unknown')}")
+    except Exception as exc:
+        print(f"{name}=IMPORT_ERROR: {exc}")
+PY
+
+python -m pip check || true
 
 echo "Installation complete."

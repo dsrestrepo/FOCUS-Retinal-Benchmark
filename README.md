@@ -62,12 +62,37 @@ The download jobs run with online access. The benchmark, training, and analysis 
 
 The Slurm scripts are written for an HPC module environment using `miniforge/24.9.0`, CUDA 12.4, cuDNN, and NCCL. Edit the `#SBATCH` headers, project account, partition, and `module load` lines in `jobs/*.sh` for your cluster.
 
-Create or activate the environment, then install the pinned Python dependencies:
+Create or activate the environment. The lightweight option is to create a fresh Python 3.12 environment:
 
 ```bash
 conda create -n llms python=3.12 -y
 conda activate llms
+```
+
+You can also recreate the exported conda environment directly:
+
+```bash
+conda env create -f reproducibility/environment.lock.yml
+conda activate llms
+```
+
+Install PyTorch first because the benchmark was run with the CUDA 12.4 PyTorch wheel stack:
+
+```bash
+python -m pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
 python -m pip install -r requirements.txt
+```
+
+On Jean Zay, the same installation order is encoded in `install_packages.sh`, including the CUDA 12.4 modules and the `flash-attn` installation flags:
+
+```bash
+sbatch install_packages.sh
+```
+
+`requirements.txt` intentionally excludes `torch`, `torchvision`, `torchaudio`, `flash-attn`, `xformers`, `triton`, `torchao`, and the `nvidia-*-cu12` runtime wheels because those are tied to the CUDA/PyTorch stack above. To regenerate `requirements.txt` from the active experiment environment after installing or updating packages:
+
+```bash
+sbatch update_transformers.sh
 ```
 
 Some download jobs install small helper packages such as `kaggle`, `gdown`, `pillow`, or editable external repos when needed.
