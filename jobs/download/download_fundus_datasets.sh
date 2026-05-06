@@ -37,7 +37,7 @@ export HF_HUB_OFFLINE=0
 export PYTHONPATH="${PYTHONPATH:-}:."
 
 # Needed for Kaggle mirrors and 224x224 fundus image preparation.
-python -m pip install -q kaggle pillow pyyaml
+#python -m pip install -q kaggle pillow pyyaml
 
 echo "Starting fundus dataset downloads on CPU (compil partition)..."
 echo "Job ID: ${SLURM_JOB_ID:-local}"

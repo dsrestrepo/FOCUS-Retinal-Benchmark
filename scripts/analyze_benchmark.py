@@ -294,7 +294,15 @@ def save_heatmap(df, metric, output_file, title, benchmark_with_task=True):
     height = max(5, 0.42 * len(pivot) + 2.0)
     width = max(14, 1.8 * len(pivot.columns) + 5)
     plt.figure(figsize=(width, height))
-    sns.heatmap(pivot, annot=True, fmt=".3f", cmap="viridis", linewidths=0.4, cbar_kws={"label": metric})
+    sns.heatmap(
+        pivot,
+        annot=True,
+        fmt=".3f",
+        cmap="viridis",
+        linewidths=0.4,
+        cbar_kws={"label": metric},
+        annot_kws={"fontsize": 11, "fontweight": "bold"},
+    )
     plt.title(title)
     plt.xlabel("Dataset / task")
     plt.ylabel("Model")

@@ -16,6 +16,7 @@ datasets:
   - "rfmid_2"
   - "idrid"
   - "messidor_2"
+  - "refuge"
   - "g1020"
   - "jsiec1000"
 tasks:
@@ -46,6 +47,8 @@ dataset_tasks:
   messidor_2:
     - "binary_dr"
     - "referable_dr"
+  refuge:
+    - "glaucoma"
   g1020:
     - "glaucoma"
   jsiec1000:
@@ -79,6 +82,7 @@ eval_datasets_ft:
   - "rfmid_2"
   - "idrid"
   - "messidor_2"
+  - "refuge"
   - "g1020"
   - "jsiec1000"
 eval_tasks_ft:

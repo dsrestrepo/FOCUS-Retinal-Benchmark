@@ -13,12 +13,14 @@ import math
 import shutil
 from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from matplotlib.lines import Line2D
-from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +47,7 @@ DATASET_ORDER = [
     "rfmid",
     "rfmid_2",
     "jsiec1000",
+    "refuge",
     "g1020",
     "papila",
 ]
@@ -65,6 +68,7 @@ DATASET_META = {
     "rfmid_2": {"country": "India", "region": "South Asia", "camera": "standard fundus"},
     "idrid": {"country": "India", "region": "South Asia", "camera": "standard fundus"},
     "messidor_2": {"country": "France", "region": "Europe", "camera": "standard fundus"},
+    "refuge": {"country": "China", "region": "East Asia", "camera": "standard fundus"},
     "g1020": {"country": "Germany", "region": "Europe", "camera": "standard fundus"},
     "jsiec1000": {"country": "China", "region": "East Asia", "camera": "standard fundus"},
 }
@@ -76,6 +80,7 @@ DATASET_DISPLAY = {
     "rfmid_2": "RFMiD 2",
     "idrid": "IDRiD",
     "messidor_2": "Messidor-2",
+    "refuge": "REFUGE",
     "g1020": "G1020",
     "jsiec1000": "JSIEC1000",
 }
@@ -85,14 +90,18 @@ TASK_DISPLAY = {
     "glaucoma": "Glaucoma",
 }
 MODEL_TYPE_DISPLAY = {
-    "cv_general": "General CV",
-    "cv_ophthalmo": "Ophthalmic CV",
-    "vlm_general": "General VLM",
-    "vlm_ophthalmo": "Ophthalmic VLM",
-    "mllm_general": "General MLLM",
-    "mllm_medical": "Medical MLLM",
+    "cv_general": "General Vision Encoder Model (VM)",
+    "cv_ophthalmo": "Ophthalmic Vision Encoder Model (VM)",
+    "vlm_general": "General Dual Encoder Vision Language Model (VLM-encoders)",
+    "vlm_ophthalmo": "Ophthalmic Dual Encoder Vision Language Model (VLM-encoders)",
+    "mllm_general": "General Multimodal LLM (MLLMs)",
+    "mllm_medical": "Medical Multimodal LLM (MLLMs)",
 }
-FAMILY_DISPLAY = {"cv": "CV", "vlm": "VLM", "mllm": "MLLM"}
+FAMILY_DISPLAY = {
+    "cv": "Vision Encoder Model (VM)",
+    "vlm": "Dual Encoder Vision Language Model (VLM-encoders)",
+    "mllm": "Multimodal LLM (MLLMs)",
+}
 METHOD_DISPLAY = {
     "base": "Base",
     "linear_probing": "Linear probe",
@@ -230,48 +239,7 @@ def annotate_heatmap(ax: plt.Axes, data: pd.DataFrame, fmt: str = ".2f") -> None
             if pd.isna(val):
                 continue
             color = "white" if float(val) > 0.74 else "#222222"
-            ax.text(x + 0.5, y + 0.5, format(float(val), fmt), ha="center", va="center", fontsize=6.2, color=color)
-
-
-def plot_benchmark_overview(_: pd.DataFrame) -> None:
-    fig, ax = plt.subplots(figsize=(12.8, 4.0))
-    ax.axis("off")
-    steps = [
-        ("Datasets", "9 fundus sources\nmobile + standard cameras"),
-        ("Tasks", "binary DR\nreferable DR\nglaucoma"),
-        ("Model families", "CV encoders\nVLMs\nMLLMs"),
-        ("Evaluation", "AUROC/AUPRC\nECE\nfairness gaps\nquality robustness"),
-        ("Arena", "model-level\nfamily-level\ndataset-level views"),
-    ]
-    xs = np.linspace(0.08, 0.92, len(steps))
-    y = 0.52
-    for i, ((title, body), x) in enumerate(zip(steps, xs)):
-        box = FancyBboxPatch(
-            (x - 0.09, y - 0.22),
-            0.18,
-            0.44,
-            boxstyle="round,pad=0.012,rounding_size=0.015",
-            fc="#F7F7F4",
-            ec="#333333",
-            lw=1.0,
-            transform=ax.transAxes,
-        )
-        ax.add_patch(box)
-        ax.text(x, y + 0.09, title, ha="center", va="center", fontsize=12, weight="bold", transform=ax.transAxes)
-        ax.text(x, y - 0.06, body, ha="center", va="center", fontsize=9.4, linespacing=1.35, transform=ax.transAxes)
-        if i < len(xs) - 1:
-            ax.add_patch(
-                FancyArrowPatch(
-                    (x + 0.095, y),
-                    (xs[i + 1] - 0.095, y),
-                    transform=ax.transAxes,
-                    arrowstyle="-|>",
-                    mutation_scale=12,
-                    lw=1.1,
-                    color="#555555",
-                )
-            )
-    savefig(fig, "benchmark_overview.png")
+            ax.text(x + 0.5, y + 0.5, format(float(val), fmt), ha="center", va="center", fontsize=10.5, fontweight="bold", color=color)
 
 
 def plot_reliability_matrix(metrics: pd.DataFrame) -> None:
@@ -325,7 +293,7 @@ def plot_task_leaderboards(metrics: pd.DataFrame) -> None:
         ax.grid(axis="x", color="#E7E7E7")
         ax.grid(axis="y", visible=False)
         for y, value in enumerate(subset["auc"]):
-            ax.text(value + 0.01, y, f"{value:.2f}", va="center", fontsize=7)
+            ax.text(value + 0.01, y, f"{value:.2f}", va="center", fontsize=10, fontweight="bold")
     handles = [Line2D([0], [0], marker="s", linestyle="", color=PALETTE[f], label=FAMILY_DISPLAY[f], markersize=8) for f in FAMILY_ORDER]
     fig.legend(handles=handles, loc="lower center", ncol=3, bbox_to_anchor=(0.5, -0.02))
     savefig(fig, "task_arena_leaderboards.png")
@@ -577,7 +545,7 @@ def plot_auc_ece_tradeoff(metrics: pd.DataFrame) -> None:
     ax.set_xlabel("Expected Calibration Error (lower is better)")
     ax.set_ylabel("Mean AUROC")
     ax.set_xlim(0.08, max(0.36, df["ece"].max() + 0.03))
-    ax.set_ylim(0.50, 0.90)
+    ax.set_ylim(0.50, 1.00)
     ax.legend(ncol=2, fontsize=7, loc="lower left")
     ax.grid(color="#E8E8E8")
     savefig(fig, "auc_ece_tradeoff.png")
@@ -624,7 +592,7 @@ def plot_dataset_shift_sensitivity(metrics: pd.DataFrame) -> None:
     fig, ax = plt.subplots(figsize=(8.8, 4.6))
     ax.barh(ranges["model_type_display"], ranges["range"], color=ranges["model_type"].map(PALETTE), height=0.72)
     for y, row in enumerate(ranges.itertuples()):
-        ax.text(row.range + 0.006, y, f"{row.range:.2f}", va="center", fontsize=8)
+        ax.text(row.range + 0.006, y, f"{row.range:.2f}", va="center", fontsize=10, fontweight="bold")
     ax.set_xlabel("Range of mean AUROC across datasets")
     ax.set_ylabel("")
     ax.set_xlim(0, max(0.28, ranges["range"].max() + 0.06))
@@ -709,6 +677,234 @@ def write_additional_tables(metrics: pd.DataFrame) -> None:
     med = metrics.groupby(["family", "domain"], as_index=False)[["accuracy", "auc", "auprc", "ece"]].mean()
     save_table(rounded(med), "medical_vs_general_summary.csv")
 
+    dataset_summary = metrics.groupby(["dataset", "country", "camera"], as_index=False).agg(
+        runs=("auc", "size"),
+        models=("model", "nunique"),
+        auc=("auc", "mean"),
+        auprc=("auprc", "mean"),
+        ece=("ece", "mean"),
+    )
+    save_table(rounded(dataset_summary.sort_values("auc", ascending=False)), "dataset_summary.csv")
+
+    coverage = metrics.groupby(["dataset", "task"], as_index=False).agg(
+        runs=("auc", "size"),
+        families=("family", "nunique"),
+        model_types=("model_type", "nunique"),
+        models=("model", "nunique"),
+        mean_auc=("auc", "mean"),
+        mean_auprc=("auprc", "mean"),
+        mean_ece=("ece", "mean"),
+    )
+    save_table(rounded(coverage.sort_values(["dataset", "task"])), "dataset_task_coverage.csv")
+
+    dataset_family = metrics.groupby(["dataset_display", "family"], as_index=False)[
+        ["auc", "auprc", "accuracy", "ece"]
+    ].mean()
+    save_table(rounded(dataset_family.sort_values(["dataset_display", "family"])), "dataset_family_metric_summary.csv")
+
+    model_dataset = metrics.pivot_table(
+        index=["family", "model_type", "model_display", "method", "model_method"],
+        columns="dataset",
+        values="auc",
+        aggfunc="mean",
+    ).reset_index()
+    dataset_cols = [dataset for dataset in DATASET_ORDER if dataset in model_dataset.columns]
+    model_dataset = model_dataset[["family", "model_type", "model_display", "method", *dataset_cols, "model_method"]]
+    save_table(rounded(model_dataset.sort_values(["family", "model_type", "model_display", "method"])), "model_dataset_auc.csv")
+
+    save_table(rounded(metrics.groupby(["family"], as_index=False)[["accuracy", "auc", "auprc", "ece"]].mean()), "family_summary.csv")
+    save_table(rounded(metrics.groupby(["family", "model_type"], as_index=False)[["ece"]].mean()), "calibration_summary.csv")
+    save_table(rounded(metrics.groupby(["country", "family"], as_index=False)[["auc", "auprc", "accuracy", "ece"]].mean()), "country_family_summary.csv")
+
+    axis_rows = []
+    axis_groups = [
+        ("interface", "vision_only", metrics["family"] == "cv"),
+        ("interface", "vision_text", metrics["family"].isin(["vlm", "mllm"])),
+        ("generation", "generative", metrics["family"] == "mllm"),
+        ("generation", "non_generative", metrics["family"].isin(["cv", "vlm"])),
+        ("training_domain", "domain_specialized", metrics["domain"] == "domain_specialized"),
+        ("training_domain", "general", metrics["domain"] == "general"),
+    ]
+    for axis, group, mask in axis_groups:
+        row = {"axis": axis, "group": group}
+        row.update(metrics.loc[mask, ["accuracy", "auc", "auprc", "ece"]].mean().to_dict())
+        axis_rows.append(row)
+    save_table(rounded(pd.DataFrame(axis_rows)), "axis_summary.csv")
+
+    coverage_path = ANALYSIS / "result_coverage.csv"
+    if coverage_path.exists():
+        coverage_df = pd.read_csv(coverage_path)
+        coverage_summary = coverage_df.groupby("family", as_index=False).agg(
+            found=("found", "sum"),
+            expected=("found", "size"),
+        )
+        coverage_summary["missing"] = coverage_summary["expected"] - coverage_summary["found"]
+        coverage_summary["coverage"] = coverage_summary["found"] / coverage_summary["expected"]
+        save_table(rounded(coverage_summary), "coverage_summary.csv")
+
+    fairness_cols = [
+        "age_demographic_parity_gap",
+        "age_equalized_odds_gap",
+        "age_auc_gap",
+    ]
+    available_fairness_cols = [col for col in fairness_cols if col in metrics.columns]
+    if available_fairness_cols:
+        save_table(
+            rounded(metrics.groupby(["family", "model_type"], as_index=False)[available_fairness_cols].mean()),
+            "fairness_summary.csv",
+        )
+    audit = pd.DataFrame(
+        [
+            {
+                "attribute": "age",
+                "available": bool(available_fairness_cols and metrics[available_fairness_cols].notna().any().any()),
+                "rows": int(metrics[available_fairness_cols].notna().any(axis=1).sum()) if available_fairness_cols else 0,
+                "note": "Age subgroup metrics are present when dataset metadata and sample-size thresholds permit.",
+            },
+            {
+                "attribute": "sex",
+                "available": False,
+                "rows": 0,
+                "note": "No sex subgroup rows are present in the recovered result bundle; aggregated rows mark sex as skipped or missing.",
+            },
+        ]
+    )
+    save_table(audit, "fairness_attribute_audit.csv")
+
+    gap_cols = [
+        "age_demographic_parity_gap",
+        "age_equalized_odds_gap",
+        "age_accuracy_gap",
+        "age_auc_gap",
+        "image_quality_accuracy_gap",
+        "image_quality_auc_gap",
+        "image_quality_auprc_gap",
+        "image_quality_ece_gap",
+    ]
+    available_gap_cols = [col for col in gap_cols if col in metrics.columns]
+    save_table(rounded(metrics.groupby("family", as_index=False)[available_gap_cols].mean()), "gap_summary.csv")
+
+    save_table(
+        rounded(metrics.groupby(["family", "domain", "method"], as_index=False)[["auc", "auprc", "accuracy", "ece"]].mean()),
+        "method_by_domain_summary.csv",
+    )
+    save_table(
+        rounded(metrics.groupby(["family", "method"], as_index=False)[["accuracy", "auc", "auprc", "ece"]].mean()),
+        "method_summary.csv",
+    )
+
+    method_task = metrics.copy()
+    method_task["method_group"] = (
+        method_task["family"].str.upper()
+        + " "
+        + method_task["method"].str.replace("_", " ")
+        + "\n"
+        + method_task["domain"].str.replace("_", " ")
+    )
+    save_table(
+        rounded(method_task.groupby(["task", "method_group"], as_index=False)[["auc", "auprc", "accuracy", "ece"]].mean()),
+        "method_task_metric_summary.csv",
+    )
+
+    mllm = metrics[metrics["family"] == "mllm"].copy()
+    if not mllm.empty:
+        mllm_summary = mllm.groupby(["family", "model_type", "model", "model_display", "method"], as_index=False).agg(
+            runs=("auc", "size"),
+            datasets=("dataset", "nunique"),
+            tasks=("task", "nunique"),
+            accuracy=("accuracy", "mean"),
+            auc=("auc", "mean"),
+            auprc=("auprc", "mean"),
+            ece=("ece", "mean"),
+            age_equalized_odds_gap=("age_equalized_odds_gap", "mean"),
+            age_auc_gap=("age_auc_gap", "mean"),
+            image_quality_accuracy_gap=("image_quality_accuracy_gap", "mean"),
+            image_quality_auc_gap=("image_quality_auc_gap", "mean"),
+        )
+        mllm_summary["model_method"] = mllm_summary["model_display"] + " (" + mllm_summary["method"].map(METHOD_DISPLAY).fillna(mllm_summary["method"]) + ")"
+        mllm_summary["parameters_b"] = mllm_summary["model"].map(mllm_parameter_billions)
+        save_table(rounded(mllm_summary), "mllm_model_summary.csv")
+
+    mobile_pairs = []
+    mobile_group = metrics.groupby(["model_type", "model", "method", "task", "camera"], as_index=False).agg(
+        auc=("auc", "mean"),
+        ece=("ece", "mean"),
+    )
+    for keys, group in mobile_group.groupby(["model_type", "model", "method", "task"]):
+        by_camera = group.set_index("camera")
+        if {"mobile fundus", "standard fundus"}.issubset(by_camera.index):
+            mobile_auc = float(by_camera.loc["mobile fundus", "auc"])
+            standard_auc = float(by_camera.loc["standard fundus", "auc"])
+            mobile_ece = float(by_camera.loc["mobile fundus", "ece"])
+            standard_ece = float(by_camera.loc["standard fundus", "ece"])
+            mobile_pairs.append(
+                {
+                    "model_type": keys[0],
+                    "model": keys[1],
+                    "method": keys[2],
+                    "task": keys[3],
+                    "mobile_auc": mobile_auc,
+                    "standard_auc": standard_auc,
+                    "mobile_auc_gap": standard_auc - mobile_auc,
+                    "mobile_ece": mobile_ece,
+                    "standard_ece": standard_ece,
+                    "mobile_ece_delta": mobile_ece - standard_ece,
+                }
+            )
+    if mobile_pairs:
+        save_table(rounded(pd.DataFrame(mobile_pairs)), "mobile_sensitivity.csv")
+
+    save_table(
+        metrics[["family", "model_type", "model", "method"]]
+        .drop_duplicates()
+        .sort_values(["family", "model_type", "model", "method"]),
+        "model_inventory.csv",
+    )
+
+    model_task = metrics.pivot_table(
+        index=["family", "model_type", "model_display", "method", "model_method"],
+        columns="task",
+        values="auc",
+        aggfunc="mean",
+    ).reset_index()
+    task_cols = [task for task in TASK_ORDER if task in model_task.columns]
+    save_table(
+        rounded(model_task[["family", "model_type", "model_display", "method", *task_cols, "model_method"]]),
+        "model_task_auc.csv",
+    )
+
+    save_table(
+        rounded(metrics.groupby(["family", "model_type"], as_index=False)[
+            ["accuracy", "auc", "auprc", "ece", "age_equalized_odds_gap", "image_quality_accuracy_gap"]
+        ].mean()),
+        "reliability_tradeoff.csv",
+    )
+    save_table(
+        rounded(metrics.groupby(["family", "model_type"], as_index=False)[
+            ["image_quality_accuracy_gap", "image_quality_auc_gap", "image_quality_ece_gap"]
+        ].mean()),
+        "robustness_summary.csv",
+    )
+
+    task_family = metrics.pivot_table(index="task", columns="family", values="auc", aggfunc="mean").reset_index()
+    save_table(rounded(task_family[["task", *[family for family in FAMILY_ORDER if family in task_family.columns]]]), "task_family_auc.csv")
+    task_model_type = metrics.pivot_table(index="model_type", columns="task", values="auc", aggfunc="mean").reset_index()
+    save_table(rounded(task_model_type[["model_type", *[task for task in TASK_ORDER if task in task_model_type.columns]]]), "task_model_type_auc.csv")
+
+    dataset_by_type = metrics.groupby(["model_type", "dataset"], as_index=False).agg(auc=("auc", "mean"), ece=("ece", "mean"))
+    shift_rows = []
+    for model_type, group in dataset_by_type.groupby("model_type"):
+        shift_rows.append(
+            {
+                "model_type": model_type,
+                "mean_auc": group["auc"].mean(),
+                "dataset_auc_std": group["auc"].std(ddof=0),
+                "dataset_auc_range": group["auc"].max() - group["auc"].min(),
+                "mean_ece": group["ece"].mean(),
+            }
+        )
+    save_table(rounded(pd.DataFrame(shift_rows)), "dataset_shift_by_model_type.csv")
+
 
 def main() -> None:
     setup_style()
@@ -718,7 +914,6 @@ def main() -> None:
     PAPER_TABLES.mkdir(parents=True, exist_ok=True)
 
     write_additional_tables(metrics)
-    plot_benchmark_overview(metrics)
     plot_reliability_matrix(metrics)
     plot_task_leaderboards(metrics)
     plot_model_dataset_heatmaps(metrics)

@@ -17,7 +17,8 @@ This benchmark is scoped to color fundus photography. The primary inclusion rule
 | RFMiD 2.0 | India | Multi-disease classification | Not public | Zenodo | Auxiliary RFMiD release. |
 | IDRiD | India | DR/DME grading and lesion segmentation | Not public | IEEE DataPort open-access page | Use official source for audit; script leaves this manual. |
 | Messidor-2 | France | DR/DME grading | Not public | Consortium/form or Kaggle mirror | Good DR benchmark; keep license/source caveat visible. |
-| G1020 | Germany / clinical | Glaucoma classification and disc/cup segmentation | Not public | Kaggle mirror | Use only the G1020 subset from combined mirrors. |
+| REFUGE | China / challenge | Glaucoma classification, disc/cup segmentation, fovea localization | Not public | G1020 Kaggle mirror / Grand Challenge | Prepared as a standalone glaucoma dataset from the bundled REFUGE copy. |
+| G1020 | Germany / clinical | Glaucoma classification and disc/cup segmentation | Not public | Kaggle mirror | Use the G1020 subset from combined mirrors. |
 | JSIEC1000 | China | 39-class fundus disease classification | Not public | Kaggle | Good disease breadth slice. |
 | PALM | China | Pathologic myopia and lesion segmentation | Not public | Grand Challenge registration | Include if myopia is in scope. |
 
@@ -25,7 +26,6 @@ This benchmark is scoped to color fundus photography. The primary inclusion rule
 
 | Dataset | Region | Main use | Reason secondary |
 | --- | --- | --- | --- |
-| REFUGE | China / challenge | Glaucoma classification, disc/cup segmentation, fovea localization | Manual Grand Challenge dataset. A copy is bundled inside the G1020 Kaggle mirror, but we do not count it as a separate benchmark dataset unless manually added. |
 | ACRIMA | Spain | Glaucoma classification | Smaller and mirror-dependent licensing. |
 | Drishti-GS | India | Glaucoma disc/cup segmentation | Very small. |
 | RIM-ONE / RIM-ONE DL | Spain | Glaucoma/optic nerve tasks | Smaller and source terms need final verification. |

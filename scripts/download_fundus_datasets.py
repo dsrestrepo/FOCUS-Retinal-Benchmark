@@ -909,6 +909,396 @@ def prepare_g1020(target_dir: Path, dry_run: bool) -> None:
     write_manifest(target_dir, rows, dry_run)
 
 
+def find_refuge_split_image_dirs(source_dir: Path) -> list[tuple[str, Path]]:
+    preferred_roots = [
+        source_dir / "REFUGE" / "REFUGE",
+        source_dir / "REFUGE",
+        source_dir / "G1020" / "REFUGE" / "REFUGE",
+        source_dir / "G1020" / "REFUGE",
+        source_dir / "25_REFUGE",
+    ]
+    roots = [path for path in preferred_roots if path.exists()]
+    roots.extend(
+        path
+        for path in source_dir.rglob("REFUGE")
+        if path.is_dir() and path not in roots
+    )
+
+    split_dirs: list[tuple[str, Path]] = []
+    seen: set[tuple[str, Path]] = set()
+    for root in roots:
+        for split in ("train", "val", "test"):
+            candidates = [
+                root / split / "Images",
+                root / split / "Images_Square",
+                root / split,
+            ]
+            if (root / split / "index.json").exists():
+                candidates.extend([root / "Images_Square", root / "Images"])
+            candidates.extend(path for path in (root / split).rglob("Images") if path.is_dir() if (root / split).exists())
+            candidates.extend(path for path in (root / split).rglob("Images_Square") if path.is_dir() if (root / split).exists())
+            for candidate in candidates:
+                key = (split, candidate)
+                if key in seen or not candidate.exists():
+                    continue
+                if image_files(candidate):
+                    seen.add(key)
+                    split_dirs.append((split, candidate))
+                    break
+
+    if not split_dirs:
+        for path in source_dir.rglob("Images"):
+            if path.is_dir() and image_files(path):
+                split = path.parent.name.lower()
+                split_dirs.append((split if split in {"train", "val", "test"} else "all", path))
+        for path in source_dir.rglob("Images_Square"):
+            if path.is_dir() and image_files(path):
+                split = path.parent.name.lower()
+                if split in {"train", "val", "test"}:
+                    split_dirs.append((split, path))
+    return split_dirs
+
+
+def refuge_label_lookup(source_dir: Path) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    label_keys = (
+        "Glaucoma",
+        "glaucoma",
+        "Label",
+        "label",
+        "Diagnosis",
+        "diagnosis",
+        "ground_truth",
+        "Ground Truth",
+        "class",
+        "Class",
+    )
+    image_keys = (
+        "image",
+        "Image",
+        "filename",
+        "Filename",
+        "image_id",
+        "ImageID",
+        "imageID",
+        "name",
+    )
+    for csv_path in csv_files(source_dir):
+        if "refuge" not in str(csv_path).lower():
+            continue
+        for row in read_csv_rows(csv_path):
+            image_id = ""
+            for key in image_keys:
+                value = str(row.get(key, "")).strip()
+                if value:
+                    image_id = Path(value).stem
+                    break
+            if not image_id:
+                continue
+            label_value = ""
+            for key in label_keys:
+                value = str(row.get(key, "")).strip()
+                if value:
+                    label_value = value
+                    break
+            if label_value:
+                lookup[normalize_image_stem(image_id)] = "1" if parse_numeric_label(label_value) > 0 else "0"
+    return lookup
+
+
+def refuge_index_json_candidates(image_root: Path, split: str | None = None) -> list[Path]:
+    if split:
+        split_candidates = [
+            image_root.parent / split / "index.json",
+            image_root.parent.parent / split / "index.json",
+            image_root.parent / "index.json" if image_root.parent.name.lower() == split else Path("__missing__"),
+        ]
+        found = []
+        seen_split: set[Path] = set()
+        for path in split_candidates:
+            if path not in seen_split and path.exists():
+                seen_split.add(path)
+                found.append(path)
+        if found:
+            return found
+
+    candidates = [
+        image_root / "index.json",
+        image_root.parent / "index.json",
+        image_root.parent.parent / "index.json",
+    ]
+    candidates.extend(image_root.rglob("index.json"))
+    candidates.extend(image_root.parent.rglob("index.json") if image_root.parent.exists() else [])
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for path in candidates:
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.exists():
+            ordered.append(path)
+    return ordered
+
+
+def refuge_index_label_lookup(image_root: Path, split: str | None = None) -> dict[str, str]:
+    lookup: dict[str, str] = {}
+    for index_path in refuge_index_json_candidates(image_root, split):
+        try:
+            records = json.loads(index_path.read_text())
+        except Exception as exc:
+            print(f"[warn] Could not read REFUGE label index {index_path}: {exc}")
+            continue
+        if isinstance(records, dict):
+            values = records.values()
+        elif isinstance(records, list):
+            values = records
+        else:
+            continue
+        for record in values:
+            if not isinstance(record, dict):
+                continue
+            image_name = str(
+                record.get("ImgName")
+                or record.get("image")
+                or record.get("filename")
+                or record.get("Image")
+                or ""
+            ).strip()
+            if not image_name or "Label" not in record:
+                continue
+            label = "1" if parse_numeric_label(str(record.get("Label", ""))) > 0 else "0"
+            lookup[normalize_image_stem(Path(image_name).stem)] = label
+    return lookup
+
+
+def infer_refuge_glaucoma(image_path: Path, index_labels_by_stem: dict[str, str], csv_labels_by_stem: dict[str, str]) -> tuple[str, str]:
+    stem = normalize_image_stem(image_path.stem)
+    if stem in index_labels_by_stem:
+        return index_labels_by_stem[stem], "index_json"
+    if stem in csv_labels_by_stem:
+        return csv_labels_by_stem[stem], "csv"
+    prefix = image_path.name[:1].lower()
+    if prefix == "g":
+        return "1", "filename_prefix"
+    if prefix == "n":
+        return "0", "filename_prefix"
+    return "", ""
+
+
+def find_refuge_roots(source_dir: Path) -> list[Path]:
+    candidates = [
+        source_dir,
+        source_dir / "REFUGE",
+        source_dir / "REFUGE" / "REFUGE",
+        source_dir / "G1020" / "REFUGE",
+        source_dir / "G1020" / "REFUGE" / "REFUGE",
+        source_dir / "25_REFUGE",
+    ]
+    candidates.extend(path for path in source_dir.rglob("REFUGE") if path.is_dir())
+    roots: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        if path in seen or not path.exists():
+            continue
+        seen.add(path)
+        if any(find_refuge_split_index(path, split) is not None for split in ("train", "val", "test")):
+            roots.append(path)
+    return roots
+
+
+def find_refuge_split_index(root: Path, split: str) -> Path | None:
+    split_dir = root / split
+    candidates = [
+        split_dir / "index.json",
+        split_dir / split / "index.json",
+        split_dir / "REFUGE" / "index.json",
+    ]
+    if split_dir.exists():
+        candidates.extend(path for path in split_dir.rglob("index.json") if path.is_file())
+    seen: set[Path] = set()
+    for path in candidates:
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.exists():
+            return path
+    return None
+
+
+def read_refuge_index_records(index_path: Path) -> list[dict]:
+    records = json.loads(index_path.read_text())
+    if isinstance(records, dict):
+        values = records.values()
+    elif isinstance(records, list):
+        values = records
+    else:
+        return []
+    return [record for record in values if isinstance(record, dict)]
+
+
+def find_refuge_image_for_record(root: Path, split: str, image_name: str) -> Path | None:
+    candidates = [
+        root / split / "Images" / image_name,
+        root / split / "Images_Square" / image_name,
+        root / "Images_Square" / image_name,
+        root / "Images" / image_name,
+    ]
+    stem = normalize_image_stem(Path(image_name).stem)
+    for path in candidates:
+        if path.exists():
+            return path
+    image_roots = [
+        root / split / "Images",
+        root / split / "Images_Square",
+        root / split / "Images_Cropped",
+        root / "Images_Square",
+        root / "Images",
+    ]
+    split_dir = root / split
+    if split_dir.exists():
+        image_roots.extend(path for path in split_dir.rglob("*") if path.is_dir() and path.name.lower() in {"images", "images_square", "images_cropped"})
+    for image_root in image_roots:
+        if not image_root.exists():
+            continue
+        for path in image_files(image_root):
+            if normalize_image_stem(path.stem) == stem:
+                return path
+    return None
+
+
+def rows_from_refuge_index_json(source_dir: Path) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for root in find_refuge_roots(source_dir):
+        root_rows: list[dict[str, str]] = []
+        found_splits: set[str] = set()
+        skipped_unlabeled: dict[str, int] = {}
+        for split in ("train", "val", "test"):
+            index_path = find_refuge_split_index(root, split)
+            if index_path is None:
+                print(f"[warn] REFUGE {split} index.json not found under {root / split}")
+                continue
+            found_splits.add(split)
+            missing_images = 0
+            unlabeled_records = 0
+            split_rows: list[dict[str, str]] = []
+            for record in read_refuge_index_records(index_path):
+                image_name = str(record.get("ImgName", "")).strip()
+                if not image_name:
+                    continue
+                if "Label" not in record:
+                    unlabeled_records += 1
+                    continue
+                image_path = find_refuge_image_for_record(root, split, image_name)
+                if image_path is None:
+                    missing_images += 1
+                    continue
+                glaucoma = "1" if parse_numeric_label(str(record.get("Label", ""))) > 0 else "0"
+                benchmark_split = "test" if split == "val" else split
+                split_rows.append(
+                    {
+                        "dataset": "refuge",
+                        "split": benchmark_split,
+                        "image_path": str(image_path),
+                        "image_id": Path(image_name).stem,
+                        "label": glaucoma,
+                        "Task_Glaucoma": glaucoma,
+                        "glaucoma": glaucoma,
+                        "label_glaucoma": glaucoma,
+                        "label_source": "index_json",
+                        "source": "G1020_Kaggle_REFUGE",
+                        "source_split": split,
+                    }
+                )
+            if missing_images:
+                print(f"[warn] {missing_images} REFUGE {split} records in {index_path} did not have matching images.")
+            if unlabeled_records:
+                skipped_unlabeled[split] = unlabeled_records
+                print(f"[warn] skipped {unlabeled_records} unlabeled REFUGE {split} records from {index_path}")
+            print(f"[refuge] {split}: {len(split_rows)} labeled rows from {index_path}")
+            root_rows.extend(split_rows)
+        if root_rows:
+            missing_required = {"train", "val", "test"} - found_splits
+            if missing_required:
+                print(f"[warn] REFUGE root {root} missing index files for: {sorted(missing_required)}")
+            split_counts = {}
+            for row in root_rows:
+                split_counts[row["split"]] = split_counts.get(row["split"], 0) + 1
+            if split_counts.get("test", 0) == 0:
+                raise RuntimeError(
+                    f"REFUGE preprocessing found no labeled benchmark test rows under {root}. "
+                    "The official REFUGE test split is unlabeled in this mirror, so labeled validation rows "
+                    "are expected to be mapped to benchmark split='test'."
+                )
+            if skipped_unlabeled:
+                print(
+                    "[refuge] official unlabeled split rows were excluded: "
+                    + ", ".join(f"{split}={count}" for split, count in sorted(skipped_unlabeled.items()))
+                )
+            return root_rows
+    return rows
+
+
+def prepare_refuge_from_g1020(source_dir: Path, target_dir: Path, dry_run: bool) -> None:
+    rows = rows_from_refuge_index_json(source_dir)
+    if rows:
+        labels = labels_from_manifest_rows(rows)
+        write_rows_csv(target_dir / "labels_refuge.csv", labels, dry_run)
+        write_rows_csv(target_dir / "labels.csv", labels, dry_run)
+        write_manifest(target_dir, rows, dry_run)
+        return
+
+    split_image_dirs = find_refuge_split_image_dirs(source_dir)
+    if not split_image_dirs:
+        candidates = [
+            path
+            for path in list(source_dir.rglob("Images")) + list(source_dir.rglob("Images_Square"))
+            if path.is_dir() and image_files(path)
+        ]
+        detail = ", ".join(str(path) for path in candidates[:8])
+        raise RuntimeError(
+            f"Could not find REFUGE split image folders under {source_dir}. "
+            f"Candidate image dirs: {detail}"
+        )
+
+    rows = []
+    unlabeled = 0
+    labels_by_stem = refuge_label_lookup(source_dir)
+    for split, image_root in split_image_dirs:
+        split_labels_by_stem = refuge_index_label_lookup(image_root, split)
+        for image_path in image_files(image_root):
+            image_stem = normalize_image_stem(image_path.stem)
+            if split_labels_by_stem and image_stem not in split_labels_by_stem:
+                continue
+            glaucoma, label_source = infer_refuge_glaucoma(image_path, split_labels_by_stem, labels_by_stem)
+            if glaucoma == "":
+                unlabeled += 1
+            rows.append(
+                {
+                    "dataset": "refuge",
+                    "split": split,
+                    "image_path": str(image_path),
+                    "image_id": image_path.stem,
+                    "label": glaucoma,
+                    "Task_Glaucoma": glaucoma,
+                    "glaucoma": glaucoma,
+                    "label_glaucoma": glaucoma,
+                    "label_source": label_source,
+                    "source": "G1020_Kaggle_REFUGE",
+                    "source_split": split,
+                }
+            )
+
+    if not rows:
+        raise RuntimeError(f"Could not build REFUGE manifest from {source_dir}")
+    if unlabeled:
+        print(f"[warn] {unlabeled} REFUGE images did not have glaucoma labels; they will be excluded by task evaluation.")
+
+    labels = labels_from_manifest_rows(rows)
+    write_rows_csv(target_dir / "labels_refuge.csv", labels, dry_run)
+    write_rows_csv(target_dir / "labels.csv", labels, dry_run)
+    write_manifest(target_dir, rows, dry_run)
+
+
 def find_matching_image_file(root: Path, stem: str) -> str:
     if not root.exists():
         return ""
@@ -1165,6 +1555,10 @@ def preprocess_dataset(dataset_key: str, dataset: dict, target_dir: Path, dry_ru
         prepare_messidor_2(target_dir, dry_run)
     elif prepare_kind == "g1020":
         prepare_g1020(target_dir, dry_run)
+    elif prepare_kind == "refuge_from_g1020":
+        source_storage_dir = dataset.get("download", {}).get("source_storage_dir", "G1020")
+        source_dir = target_dir.parent / source_storage_dir
+        prepare_refuge_from_g1020(source_dir, target_dir, dry_run)
     elif prepare_kind == "jsiec1000":
         prepare_jsiec1000(target_dir, dry_run)
     elif prepare_kind == "idrid":
@@ -1281,6 +1675,7 @@ def download_dataset(
     target_dir = target_dir_for(dataset_key, dataset, output_root)
     method = dataset.get("download", {}).get("method", "manual")
     download = dataset.get("download", {})
+    source_dir = output_root / download.get("source_storage_dir", "G1020") if method == "g1020_bundle" else None
     print(f"\n== {dataset.get('name', dataset_key)} ({method}) ==")
 
     if preprocess_only:
@@ -1300,6 +1695,12 @@ def download_dataset(
     elif method == "kaggle":
         download_kaggle(download["slug"], target_dir, dry_run)
         mark_complete(target_dir, dry_run)
+    elif method == "g1020_bundle":
+        if download_is_complete(source_dir):
+            print(f"[skip] raw G1020 mirror already present in {source_dir}")
+        else:
+            download_kaggle(download["slug"], source_dir, dry_run)
+            mark_complete(source_dir, dry_run)
     elif method == "physionet":
         download_physionet(download["url"], target_dir, env, dry_run)
         mark_complete(target_dir, dry_run)
@@ -1316,7 +1717,8 @@ def download_dataset(
         return
 
     if download.get("prepare"):
-        if download_is_complete(target_dir):
+        raw_ready = (download_is_complete(source_dir) or source_dir.exists()) if source_dir is not None else download_is_complete(target_dir)
+        if raw_ready:
             preprocess_dataset(dataset_key, dataset, target_dir, dry_run, force=force_preprocess)
         elif dry_run:
             print(f"[dry-run] preprocess {dataset_key} after raw data is available")
@@ -1358,6 +1760,16 @@ def main() -> int:
         if args.include_optional:
             statuses.add("included_optional")
         selected = [key for key, value in datasets.items() if value.get("status") in statuses]
+    else:
+        selected = list(selected)
+
+    if (
+        "g1020" in selected
+        and "refuge" in datasets
+        and datasets.get("g1020", {}).get("download", {}).get("include_refuge_from_g1020", False)
+        and "refuge" not in selected
+    ):
+        selected.append("refuge")
 
     print(f"[output] {output_root}")
     failures = []

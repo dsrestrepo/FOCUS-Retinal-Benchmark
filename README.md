@@ -138,7 +138,7 @@ Never commit `.env`, `config/paths.env`, Kaggle credentials, service-account JSO
 Datasets are defined in `config/fundus_datasets.yaml`. Each dataset entry controls:
 
 - `status`: included datasets are downloaded by default.
-- `download.method`: `physionet`, `kaggle`, `zenodo`, `figshare`, or `manual`.
+- `download.method`: `physionet`, `kaggle`, `zenodo`, `figshare`, `g1020_bundle`, or `manual`.
 - `download.storage_dir`: destination under `$DATA_PATH`.
 - `download.prepared_paths`: files that must exist for preprocessing to be considered complete.
 - `download.prepare`: preprocessing routine used by `scripts/download_fundus_datasets.py`.
@@ -147,7 +147,7 @@ Datasets are defined in `config/fundus_datasets.yaml`. Each dataset entry contro
 The benchmark currently uses:
 
 ```text
-brset, mbrset, papila, rfmid, rfmid_2, idrid, messidor_2, g1020, jsiec1000
+brset, mbrset, papila, rfmid, rfmid_2, idrid, messidor_2, refuge, g1020, jsiec1000
 ```
 
 BRSET and mBRSET require fixed benchmark splits. The repository includes:
@@ -513,6 +513,7 @@ All model examples assume the required checkpoints are already present in the Hu
   - IDRiD mirror used by the downloader: https://zenodo.org/records/17219542
   - Messidor-2 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/mariaherrerot/messidor2preprocess
   - G1020 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/arnavjain1/glaucoma-datasets
+  - REFUGE is prepared from the REFUGE copy bundled in the G1020 Kaggle mirror. But oficial challenge is here: https://refuge.grand-challenge.org/
   - JSIEC1000 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/linchundan/fundusimage1000
 
   Hugging Face model pages:

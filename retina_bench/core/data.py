@@ -4,6 +4,9 @@ from PIL import Image
 from pathlib import Path
 import re
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SPLIT_DATA_DIR = REPO_ROOT / "Split_Data"
+
 MANIFEST_DATASET_PATHS = {
     "papila": ("PAPILA",),
     "rfmid": ("RFMiD",),
@@ -11,6 +14,7 @@ MANIFEST_DATASET_PATHS = {
     "idrid": ("IDRiD",),
     "messidor_2": ("Messidor-2",),
     "g1020": ("G1020",),
+    "refuge": ("REFUGE",),
     "jsiec1000": ("JSIEC1000",),
 }
 
@@ -157,6 +161,8 @@ class RetinaDataset:
 
         if "image_id" not in self.df.columns:
             self.df["image_id"] = self.df.index.astype(str)
+        else:
+            self.df["image_id"] = self.df["image_id"].astype(str)
 
         if "image_path" not in self.df.columns:
             raise ValueError(f"Dataset {self.dataset_name} manifest is missing image_path")
@@ -175,6 +181,19 @@ class RetinaDataset:
         })
         self.df["split"] = split_values
 
+        split_df = self._load_external_split_file()
+        if split_df is not None and self.split != "all":
+            merge_key = "image_path" if "image_path" in split_df.columns and "image_path" in self.df.columns else "image_id"
+            self.df[merge_key] = self.df[merge_key].astype(str)
+            split_df[merge_key] = split_df[merge_key].astype(str)
+            self.df = self.df.drop(columns=["split"], errors="ignore").merge(
+                split_df[[merge_key, "split"]],
+                on=merge_key,
+                how="left",
+            )
+            self.df["split"] = self.df["split"].fillna("all").astype("string").str.lower().str.strip()
+            return
+
         available = set(split_values.dropna().unique())
         has_named_eval_split = bool(available.intersection({"train", "val", "test"}))
         if has_named_eval_split:
@@ -184,6 +203,32 @@ class RetinaDataset:
         # "all"/NaN in the split column. For evaluation, keep the full manifest
         # available instead of creating a synthetic split.
         self.df["split"] = self.split if self.split != "all" else "all"
+
+    def _load_external_split_file(self):
+        candidates = [
+            SPLIT_DATA_DIR / f"labels_splits_{self.dataset_name}.csv",
+            SPLIT_DATA_DIR / f"labels_splits_{self.dataset_name.replace('-', '_')}.csv",
+        ]
+
+        for split_path in candidates:
+            if not split_path.exists():
+                continue
+            split_df = pd.read_csv(split_path)
+            if "split" not in split_df.columns:
+                continue
+            if "image_id" not in split_df.columns:
+                if "id" in split_df.columns:
+                    split_df = split_df.rename(columns={"id": "image_id"})
+                else:
+                    continue
+            split_df = split_df.copy()
+            split_df["image_id"] = split_df["image_id"].astype(str)
+            if "image_path" in split_df.columns:
+                split_df["image_path"] = split_df["image_path"].astype(str)
+            split_df["split"] = split_df["split"].astype("string").str.lower().str.strip()
+            split_df["split"] = split_df["split"].replace({"validation": "val", "valid": "val"})
+            return split_df.dropna(subset=["image_id", "split"])
+        return None
 
     def __len__(self):
         return len(self.df)

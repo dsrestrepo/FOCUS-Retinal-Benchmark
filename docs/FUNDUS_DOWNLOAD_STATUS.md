@@ -15,7 +15,7 @@ Source logs: `logs/download_fundus.out` and `logs/download_fundus.err` from Slur
 | JSIEC1000 | Downloaded by Kaggle | Kaggle command completed; final failure list does not include JSIEC1000. | Inspect folder structure and labels. |
 | PAPILA | Failed | `list indices must be integers or slices, not str` from Figshare DOI resolution. | Fixed in `scripts/download_fundus_datasets.py`; rerun only `papila`. |
 | IDRiD | Not downloaded | Script wrote `IDRiD/MANUAL_DOWNLOAD.md`. | Manual download from IEEE DataPort, or add a programmatic official source if one is approved. |
-| REFUGE | Optional/manual | Script wrote `REFUGE/MANUAL_DOWNLOAD.md`. A REFUGE copy is bundled inside the G1020 Kaggle mirror, but the current benchmark uses only the G1020 subset. | Add manually only if REFUGE should be evaluated as its own dataset. |
+| REFUGE | Included through G1020 mirror | A REFUGE copy is bundled inside the G1020 Kaggle mirror and now has a dedicated preprocessing path. | Run REFUGE preprocessing from the existing G1020 mirror. |
 | PALM | Not downloaded | Script wrote `PALM/MANUAL_DOWNLOAD.md`. | Manual download after Grand Challenge registration/terms acceptance. |
 
 ## Inspecting the real Lustre structure
@@ -86,4 +86,4 @@ $DATA_PATH/IDRiD
 $DATA_PATH/PALM
 ```
 
-REFUGE is intentionally excluded from the default included set for now. The G1020 Kaggle mirror contains a `G1020/REFUGE` folder, but that folder is not counted as standalone REFUGE unless we add a dedicated REFUGE preprocessing path.
+REFUGE is included as a standalone benchmark dataset through the G1020 Kaggle mirror. The REFUGE preprocessing path reads the bundled train images and infers glaucoma labels from the standard filename prefixes.

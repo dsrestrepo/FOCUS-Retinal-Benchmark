@@ -194,21 +194,25 @@ datasets:
 
   refuge:
     name: REFUGE
-    status: included_optional_manual
+    status: included
     modality: color_fundus
     geography: China/multicenter challenge
     task_family: glaucoma_classification_disc_cup_segmentation_fovea_localization
     demographics: none_public
-    access: open_with_registration
-    license: Challenge terms
+    access: open_mirror
+    license: Challenge terms; bundled mirror terms follow the G1020 Kaggle mirror.
     download:
-      method: manual
+      method: g1020_bundle
       url: https://refuge.grand-challenge.org/
+      slug: arnavjain1/glaucoma-datasets
+      source_storage_dir: G1020
       storage_dir: REFUGE
       prepared_paths:
+        - labels_refuge.csv
+        - labels.csv
         - prepared/manifest.csv
-      prepare: refuge
-    notes: Download requires Grand Challenge registration/terms. A REFUGE copy is bundled in the G1020 Kaggle mirror, but the benchmark currently uses only the G1020 subset; add REFUGE manually if it should be evaluated as its own dataset.
+      prepare: refuge_from_g1020
+    notes: Download requires Grand Challenge registration/terms from the official source. The benchmark can also prepare REFUGE as its own dataset from the REFUGE copy bundled in the G1020 Kaggle mirror.
 
   g1020:
     name: G1020
@@ -223,12 +227,13 @@ datasets:
       method: kaggle
       slug: arnavjain1/glaucoma-datasets
       storage_dir: G1020
+      include_refuge_from_g1020: true
       prepared_paths:
         - labels_g1020.csv
         - labels.csv
         - prepared/manifest.csv
       prepare: g1020
-    notes: Kaggle mirror also contains ORIGA and REFUGE; we use only G1020.
+    notes: Kaggle mirror also contains ORIGA and REFUGE. REFUGE is prepared as its own benchmark dataset when include_refuge_from_g1020 is true.
 
   jsiec1000:
     name: JSIEC1000

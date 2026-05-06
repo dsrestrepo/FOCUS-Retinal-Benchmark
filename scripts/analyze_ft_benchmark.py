@@ -253,7 +253,15 @@ def save_ft_heatmap(df, metric, output_file, title):
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(max(14, 1.8 * len(pivot.columns) + 5), max(5, 0.45 * len(pivot) + 2)))
-    sns.heatmap(pivot, annot=True, fmt=".3f", cmap="viridis", linewidths=0.4, cbar_kws={"label": metric})
+    sns.heatmap(
+        pivot,
+        annot=True,
+        fmt=".3f",
+        cmap="viridis",
+        linewidths=0.4,
+        cbar_kws={"label": metric},
+        annot_kws={"fontsize": 11, "fontweight": "bold"},
+    )
     plt.title(title)
     plt.xlabel("Test dataset / task")
     plt.ylabel("Fine-tuned adapter")
