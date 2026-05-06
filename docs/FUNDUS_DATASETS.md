@@ -22,14 +22,6 @@ This benchmark is scoped to color fundus photography. The primary inclusion rule
 | JSIEC1000 | China | 39-class fundus disease classification | Not public | Kaggle | Good disease breadth slice. |
 | PALM | China | Pathologic myopia and lesion segmentation | Not public | Grand Challenge registration | Include if myopia is in scope. |
 
-## Optional secondary datasets
-
-| Dataset | Region | Main use | Reason secondary |
-| --- | --- | --- | --- |
-| ACRIMA | Spain | Glaucoma classification | Smaller and mirror-dependent licensing. |
-| Drishti-GS | India | Glaucoma disc/cup segmentation | Very small. |
-| RIM-ONE / RIM-ONE DL | Spain | Glaucoma/optic nerve tasks | Smaller and source terms need final verification. |
-| DRIVE / STARE / CHASEDB1 / DIARETDB1 / e-ophtha / HRF | Mixed | Vessel, lesion, or small segmentation tasks | Useful only for dedicated segmentation/lesion subtasks, not the main performance suite. |
 
 ## Excluded datasets
 
