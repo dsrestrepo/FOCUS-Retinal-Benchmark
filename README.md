@@ -10,13 +10,12 @@ An interactive arena is available at:
 
 https://huggingface.co/spaces/focus-retina-benchmark/focus-retinal-benchmark-arena
 
-This repository is prepared for anonymous review. Do not add author names, personal emails, institution-specific notes, private paths, credentials, raw datasets, model weights, or result dumps to the public repository.
 
 ## Repository Layout
 
 ```text
 retina_bench/
-  core/          dataset loading, preprocessing helpers, shared metrics
+  core/          dataset loading, shared metrics, common utilities
   cv/            CV foundation-model download and evaluation
   vlms/          CLIP/SigLIP/ophthalmic VLM download and evaluation
   mllms/         MLLM prompts, download, and first-token evaluation
@@ -24,7 +23,7 @@ retina_bench/
 
 config/
   paths.env.template      path template copied to config/paths.env
-  fundus_datasets.yaml    dataset manifest and preprocessing rules
+  fundus_datasets.yaml    dataset registry used by the benchmark
   cv_config.yaml          CV model, dataset, task, and method grid
   vlms_config.yaml        VLM model, dataset, task, and method grid
   mllm_config.yaml        MLLM evaluation and training grid
@@ -32,13 +31,12 @@ config/
 
 jobs/
   setup/         reproducibility export jobs
-  download/      online download/cache jobs
+  download/      online dataset/model cache jobs
   eval/          offline benchmark and analysis jobs
   train/         offline SFT and GRPO jobs
 
 Split_Data/
-  labels_splits_brset.csv
-  labels_splits_mbrset.csv
+  benchmark split definitions loaded automatically by RetinaDataset
 
 ext_repos/
   patched external model code used by selected foundation models
@@ -48,13 +46,14 @@ ext_repos/
 
 1. Create the environment.
 2. Configure local paths and credentials.
-3. Run online download jobs for datasets and models.
-4. Run offline CV, VLM, and MLLM benchmark jobs.
-5. Optionally train SFT/GRPO adapters.
-6. Evaluate adapters offline.
-7. Run analysis jobs to aggregate performance, calibration, fairness, and robustness metrics.
+3. Download and prepare datasets from the original sources.
+4. Cache required models.
+5. Run CV, VLM, and MLLM benchmark jobs.
+6. Optionally train SFT/GRPO adapters.
+7. Evaluate adapters.
+8. Run analysis jobs to aggregate performance, calibration, fairness, and robustness metrics.
 
-The download jobs run with online access. The benchmark, training, and analysis jobs are configured for offline execution through the Hugging Face cache and local dataset/model directories.
+The benchmark, training, and analysis jobs are configured for offline execution through the Hugging Face cache and local dataset/model directories.
 
 ## 1. Environment
 
@@ -86,7 +85,7 @@ sbatch install_packages.sh
 
 The Slurm scripts assume a module-based HPC environment and may need local edits to the `#SBATCH` headers or module names. `install_packages.sh` accepts environment overrides such as `CONDA_ENV_NAME`, `PYTHON_VERSION`, `MINIFORGE_MODULE`, `CUDA_MODULE`, `CUDNN_MODULE`, `NCCL_MODULE`, and `SKIP_MODULES=1`.
 
-`requirements.txt` intentionally excludes `torch`, `torchvision`, `torchaudio`, and the `nvidia-*-cu12` runtime wheels because PyTorch should be installed first with the CUDA 12.4 wheel command above. Some download jobs install small helper packages such as `kaggle`, `gdown`, `pillow`, or editable external repos when needed.
+`requirements.txt` intentionally excludes `torch`, `torchvision`, `torchaudio`, and the `nvidia-*-cu12` runtime wheels because PyTorch should be installed first with the CUDA 12.4 wheel command above.
 
 ## 2. Paths And Credentials
 
@@ -100,7 +99,7 @@ Edit `config/paths.env`:
 
 ```bash
 HF_HOME="$WORK/.cache/huggingface"
-DATA_PATH="/path/to/fundus/datasets"
+DATA_PATH="/path/to/prepared-fundus-datasets"
 OUTPUT_DIR="results/evals"
 CHECKPOINTS_DIR="results/checkpoints"
 EXT_REPOS_DIR="ext_repos"
@@ -110,7 +109,7 @@ TRANSFORMERS_OFFLINE=1
 
 `config/paths.env` is intentionally ignored by git because it contains machine-specific paths.
 
-Create the local credentials file:
+If you use gated Hugging Face models or download datasets from credentialed sources, create the local credentials file:
 
 ```bash
 cp .env.example .env
@@ -127,46 +126,25 @@ PHYSIONET_PASSWORD=...
 Credential use:
 
 - `HF_TOKEN`: required for gated Hugging Face models.
-- `PHYSIONET_USERNAME` and `PHYSIONET_PASSWORD`: required for BRSET and mBRSET.
+- `PHYSIONET_USERNAME` and `PHYSIONET_PASSWORD`: required if downloading BRSET and mBRSET from PhysioNet.
 - Kaggle datasets require the Kaggle CLI credential file, usually `~/.kaggle/kaggle.json`.
 - Manual/web-form datasets are documented in `docs/FUNDUS_DATASETS.md` and `config/fundus_datasets.yaml`.
 
 Never commit `.env`, `config/paths.env`, Kaggle credentials, service-account JSON files, raw datasets, or model weights.
 
-## 3. Dataset Manifest
+## 3. Download and Prepare Benchmark Data
 
-Datasets are defined in `config/fundus_datasets.yaml`. Each dataset entry controls:
+Set `DATA_PATH` to the directory where the prepared dataset folders should live:
 
-- `status`: included datasets are downloaded by default.
-- `download.method`: `physionet`, `kaggle`, `zenodo`, `figshare`, `g1020_bundle`, or `manual`.
-- `download.storage_dir`: destination under `$DATA_PATH`.
-- `download.prepared_paths`: files that must exist for preprocessing to be considered complete.
-- `download.prepare`: preprocessing routine used by `scripts/download_fundus_datasets.py`.
-- `evaluation`: optional fairness and robustness metadata.
+```bash
+DATA_PATH="/path/to/prepared-fundus-datasets"
+```
 
-The benchmark currently uses:
+Datasets are defined in `config/fundus_datasets.yaml`. The benchmark currently uses:
 
 ```text
 brset, mbrset, papila, rfmid, rfmid_2, idrid, messidor_2, refuge, g1020, jsiec1000
 ```
-
-BRSET and mBRSET require fixed benchmark splits. The repository includes:
-
-```text
-Split_Data/labels_splits_brset.csv
-Split_Data/labels_splits_mbrset.csv
-```
-
-During preprocessing, the downloader copies them if missing:
-
-```text
-$DATA_PATH/BRSET/brset/labels_splits.csv
-$DATA_PATH/mBRSET/mbrset/labels_splits.csv
-```
-
-These are the filenames expected by `retina_bench/core/data.py`.
-
-## 4. Download Datasets
 
 Run downloads on a node with internet access:
 
@@ -184,9 +162,11 @@ sbatch jobs/download/download_fundus_datasets.sh --force-preprocess
 sbatch jobs/download/download_fundus_datasets.sh --dry-run
 ```
 
-The script downloads into `$DATA_PATH`, prepares normalized labels/manifests, creates `images_224` where needed, and writes prepared manifests under each dataset directory. See `docs/FUNDUS_DATASETS.md` for dataset access notes.
+The dataset downloader writes benchmark-ready dataset folders under `$DATA_PATH`. 
 
-## 5. Download Models For Offline Use
+Benchmark split definitions are included in the repository under `Split_Data/`; `retina_bench.core.data.RetinaDataset` loads those split files automatically when constructing train, validation, test, or all splits. Users do not need to create split files to run the experiments.
+
+## 4. Download Models For Offline Use
 
 The compute jobs run with:
 
@@ -210,7 +190,7 @@ The MLLM downloader reads `config/mllm_config.yaml`. The VLM and CV downloaders 
 
 Important: `ext_repos/` contains patched model code used by the benchmark and should be versioned as source. The large weights inside `ext_repos/`, such as `.pt` and `.pth` files, are ignored and should be downloaded locally.
 
-## 6. YAML Configuration Files
+## 5. YAML Configuration Files
 
 The Slurm jobs read YAML files dynamically. To change the benchmark grid, edit YAML rather than editing loops in shell scripts.
 
@@ -249,11 +229,11 @@ The Slurm jobs read YAML files dynamically. To change the benchmark grid, edit Y
 - `fairness_attributes`: dataset-specific demographic columns.
 - `datasets`, `tasks`, `dataset_tasks`: analysis coverage.
 
-`config/fundus_datasets.yaml` controls dataset download and preparation.
+`config/fundus_datasets.yaml` records the dataset registry and original-source download information used by the benchmark.
 
-## 7. Run Baseline Benchmarks
+## 6. Run Baseline Benchmarks
 
-After datasets and models are cached, submit the offline evaluation jobs:
+After benchmark data and models are available locally, submit the offline evaluation jobs:
 
 ```bash
 sbatch jobs/eval/run_cv_benchmark.sh
@@ -263,7 +243,7 @@ sbatch jobs/eval/run_mllms_benchmark.sh
 
 Outputs are written under `$OUTPUT_DIR`, normally `results/evals`. The `.gitignore` excludes results because they are generated artifacts.
 
-## 8. Train Adapters
+## 7. Train Adapters
 
 SFT and GRPO are driven by `config/mllm_config.yaml` using `models`, `train_datasets`, `train_tasks`, `sft_strategies`, `grpo_strategies`, `quantization`, and `use_unsloth`.
 
@@ -288,7 +268,7 @@ results/checkpoints/grpo_<model>_<dataset>_<task>_<strategy>
 
 These checkpoints are generated artifacts and should not be committed.
 
-## 9. Evaluate Adapters
+## 8. Evaluate Adapters
 
 Evaluate trained SFT adapters:
 
@@ -304,7 +284,7 @@ sbatch jobs/eval/evaluate_grpo_adapters.sh
 
 The adapter evaluation jobs skip missing checkpoint directories, so partial training grids are supported.
 
-## 10. Analyze Results
+## 9. Analyze Results
 
 Aggregate baseline results:
 
@@ -356,7 +336,7 @@ The benchmark modules can also be used directly when you want to build custom ex
 from retina_bench.core.data import RetinaDataset
 
 dataset = RetinaDataset(
-    base_dir="/path/to/fundus/datasets",
+    base_dir="/path/to/prepared-fundus-datasets",
     dataset_name="brset",
     split="test",
 )
@@ -369,13 +349,6 @@ print(row[["image_id", "split", "DR_2_Class", "Task_Referable"]])
 print(image.size)
 ```
 
-For BRSET and mBRSET, the loader expects the split files prepared by `scripts/download_fundus_datasets.py`:
-
-```text
-$DATA_PATH/BRSET/brset/labels_splits.csv
-$DATA_PATH/mBRSET/mbrset/labels_splits.csv
-```
-
 ### Extract Image Embeddings From CV Models
 
 Image-only foundation models live under `retina_bench.cv`. They expose `get_image_embeddings(images)`.
@@ -386,7 +359,7 @@ import torch
 from retina_bench.core.data import RetinaDataset
 from retina_bench.cv.models import get_cv_model
 
-data = RetinaDataset("/path/to/fundus/datasets", "papila", split="test")
+data = RetinaDataset("/path/to/prepared-fundus-datasets", "papila", split="test")
 images = [data.get_image(i) for i in range(4)]
 
 model = get_cv_model(
@@ -418,7 +391,7 @@ import torch
 from retina_bench.core.data import RetinaDataset
 from retina_bench.vlms.models import get_vlm_model
 
-data = RetinaDataset("/path/to/fundus/datasets", "brset", split="test")
+data = RetinaDataset("/path/to/prepared-fundus-datasets", "brset", split="test")
 images = [data.get_image(i) for i in range(8)]
 
 texts = [
@@ -458,7 +431,7 @@ dataset_name = "brset"
 task = "referable_dr"
 model_id = "google/medgemma-4b-it"
 
-data = RetinaDataset("/path/to/fundus/datasets", dataset_name, split="test")
+data = RetinaDataset("/path/to/prepared-fundus-datasets", dataset_name, split="test")
 row = data.get_row(0)
 image = data.get_image(0)
 
@@ -501,9 +474,7 @@ All model examples assume the required checkpoints are already present in the Hu
 
 ## Notes
 
-- Dataset access and model terms must be accepted upstream before running the download jobs. Useful access links:
-
-  Dataset sources:
+- Dataset access and model terms must be accepted upstream when using original sources or gated checkpoints. Useful dataset source links:
 
   - BRSET: https://physionet.org/content/brazilian-ophthalmological/1.0.0/
   - mBRSET: https://physionet.org/content/mbrset/1.0/
@@ -513,10 +484,10 @@ All model examples assume the required checkpoints are already present in the Hu
   - IDRiD mirror used by the downloader: https://zenodo.org/records/17219542
   - Messidor-2 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/mariaherrerot/messidor2preprocess
   - G1020 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/arnavjain1/glaucoma-datasets
-  - REFUGE is prepared from the REFUGE copy bundled in the G1020 Kaggle mirror. But oficial challenge is here: https://refuge.grand-challenge.org/
+  - REFUGE official challenge: https://refuge.grand-challenge.org/
   - JSIEC1000 Kaggle mirror used by the downloader: https://www.kaggle.com/datasets/linchundan/fundusimage1000
 
-  Hugging Face model pages:
+  Useful Hugging Face model pages:
 
   - Gemma 3 27B: https://huggingface.co/google/gemma-3-27b-it
   - MedGemma 4B: https://huggingface.co/google/medgemma-4b-it
@@ -538,6 +509,5 @@ All model examples assume the required checkpoints are already present in the Hu
   - RETFound DINOv2 MEH: https://huggingface.co/YukunZhou/RETFound_dinov2_meh
   - RETFound DINOv2 Shanghai: https://huggingface.co/YukunZhou/RETFound_dinov2_shanghai
 
-- Dataset access terms remain the responsibility of the user. The downloader automates retrieval only where credentials or public mirrors allow it.
 - Some model checkpoints are gated and require accepting upstream terms before `download_*` jobs can cache them.
-- The benchmark expects prepared data under `$DATA_PATH` and cached models under `$HF_HOME`; evaluation and training jobs intentionally run offline.
+- The benchmark expects benchmark-ready dataset folders under `$DATA_PATH` and cached models under `$HF_HOME`; evaluation and training jobs intentionally run offline.

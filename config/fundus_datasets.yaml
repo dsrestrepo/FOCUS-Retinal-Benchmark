@@ -257,7 +257,7 @@ datasets:
 
   palm:
     name: PALM
-    status: included
+    status: included_optional
     modality: color_fundus
     geography: China
     task_family: pathologic_myopia_and_lesion_segmentation

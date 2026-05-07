@@ -16,7 +16,7 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +30,13 @@ FIGURES = ROOT / "paper" / "figures"
 TABLES = ROOT / "paper" / "tables"
 EXPORT_SCALE = 2
 EXPORT_DPI = 300
+TRIM_OUTPUTS = {
+    "auc_ece_tradeoff.png",
+    "arena_spider_grid.png",
+    "arena_spider_grid.pdf",
+    "mllm_size_domain_tradeoff.png",
+    "mllm_size_domain_tradeoff.pdf",
+}
 
 TASK_ORDER = ["binary_dr", "referable_dr", "glaucoma"]
 FAMILY_ORDER = ["cv", "vlm", "mllm"]
@@ -85,12 +92,12 @@ MODEL_TYPE_DISPLAY = {
     "mllm_medical": "Medical Multimodal LLM (MLLMs)",
 }
 METHOD_DISPLAY = {
-    "base": "Base",
-    "linear_probing": "Linear probe",
+    "base": "Zero-shot prompting",
+    "linear_probing": "Linear probing",
     "zero_shot": "Zero-shot",
 }
 METHOD_SHORT = {
-    "base": "Base",
+    "base": "ZS Prompt",
     "linear_probing": "LP",
     "zero_shot": "ZS",
 }
@@ -120,10 +127,49 @@ COLORS = {
     "linear_probing": "#4477AA",
     "zero_shot": "#DDCC77",
     "base": "#CC6677",
+    "vlm_linear_probing": "#117733",
+    "vlm_zero_shot": "#DDCC77",
+    "vlm_base": "#CC6677",
     "sft": "#2C7FB8",
     "in_domain": "#2C7FB8",
     "OOD": "#F03B20",
 }
+TRADEOFF_COLORS = {
+    "vlm_general_linear_probing": "#2C7FB8",
+    "vlm_general_zero_shot": "#7FCDBB",
+    "vlm_ophthalmo_linear_probing": "#D95F0E",
+    "vlm_ophthalmo_zero_shot": "#FDD0A2",
+}
+
+PALETTE = [
+    "#1F77B4",
+    "#FF7F0E",
+    "#2CA02C",
+    "#D62728",
+    "#9467BD",
+    "#8C564B",
+    "#E377C2",
+    "#7F7F7F",
+    "#BCBD22",
+    "#17BECF",
+    "#AEC7E8",
+    "#FFBB78",
+    "#98DF8A",
+    "#FF9896",
+    "#C5B0D5",
+    "#C49C94",
+    "#F7B6D2",
+    "#C7C7C7",
+    "#DBDB8D",
+    "#9EDAE5",
+]
+
+
+def color_for_key(key: str) -> str:
+    if key in COLORS:
+        return COLORS[key]
+    idx = abs(hash(key)) % len(PALETTE)
+    return PALETTE[idx]
 
 
 def mllm_parameter_billions(model: str) -> float | None:
@@ -285,6 +331,17 @@ def multiline_left_center(
 def save(img: Image.Image, name: str) -> None:
     FIGURES.mkdir(parents=True, exist_ok=True)
     path = FIGURES / name
+    if name in TRIM_OUTPUTS:
+        bg = Image.new(img.mode, img.size, "white")
+        diff = ImageChops.difference(img, bg)
+        bbox = diff.getbbox()
+        if bbox:
+            margin = 18
+            left = max(0, bbox[0] - margin)
+            top = max(0, bbox[1] - margin)
+            right = min(img.width, bbox[2] + margin)
+            bottom = min(img.height, bbox[3] + margin)
+            img = img.crop((left, top, right, bottom))
     if EXPORT_SCALE != 1:
         resampling = getattr(Image, "Resampling", Image).LANCZOS
         img = img.resize((img.width * EXPORT_SCALE, img.height * EXPORT_SCALE), resampling)
@@ -448,6 +505,8 @@ def draw_radar_panel(
     title: str,
     rows: pd.DataFrame,
     color_col: str,
+    show_legend: bool = True,
+    show_method_legend: bool = False,
 ) -> None:
     x0, y0, x1, y1 = panel
     center = ((x0 + x1) // 2, y0 + 275)
@@ -476,40 +535,58 @@ def draw_radar_panel(
     for idx, row in enumerate(rows.itertuples()):
         values = [getattr(row, col) for col, _ in RELIABILITY_AXES]
         pts = radar_points(center, radius, values)
-        color = COLORS[getattr(row, color_col)]
+        color = color_for_key(str(getattr(row, color_col)))
         draw.line(pts + [pts[0]], fill=rgb(color), width=4)
-        lx = x0 + 20 + (idx % 2) * ((x1 - x0) // 2)
-        ly = legend_y + (idx // 2) * 28
-        draw.line((lx, ly + 8, lx + 30, ly + 8), fill=rgb(color), width=4)
-        label = getattr(row, "model_method", getattr(row, "model_type_display", "model"))
-        draw.text((lx + 38, ly), str(label)[:42], font=F["small"], fill="#222222")
+        if show_legend:
+            lx = x0 + 20 + (idx % 2) * ((x1 - x0) // 2)
+            ly = legend_y + (idx // 2) * 28
+            draw.line((lx, ly + 8, lx + 30, ly + 8), fill=rgb(color), width=4)
+            label = getattr(row, "model_method", getattr(row, "model_type_display", "model"))
+            draw.text((lx + 38, ly), str(label)[:42], font=F["small"], fill="#222222")
+    if show_legend and show_method_legend:
+        draw.text((x0 + 20, y1 - 20), "LP=Linear probing, ZS=Zero-shot, ZS Prompt=Zero-shot prompting", font=F["small"], fill="#555555")
 
 
 def plot_reliability_spiders(base: pd.DataFrame) -> None:
     rel = reliability_scores(
         base,
-        ["family", "model_type", "model_type_display", "model_display", "method_short", "model_method"],
+        ["family", "model_type", "model_type_display", "model_display", "method", "method_short", "model_method"],
     )
-    top = rel.sort_values("auc", ascending=False).head(6)
+    rel["vlm_method_color"] = np.where(
+        rel["family"] == "vlm",
+        "vlm_" + rel["method"].astype(str),
+        rel["model_type"].astype(str),
+    )
+    top = rel.sort_values("auc", ascending=False).head(8)
     img = Image.new("RGB", (900, 820), "white")
     draw = ImageDraw.Draw(img)
-    draw_radar_panel(draw, (45, 45, 855, 775), "Top Configurations Across Metrics", top, "model_type")
+    draw_radar_panel(draw, (45, 45, 855, 775), "Top Configurations Across Metrics", top, "model_method")
     save(img, "top_model_reliability_spider.png")
+    save(img, "top_model_reliability_spider.pdf")
 
-    img = Image.new("RGB", (1800, 750), "white")
+    img = Image.new("RGB", (1800, 690), "white")
     draw = ImageDraw.Draw(img)
-    text_center(draw, (900, 34), "Arena Reliability Spider Grid", F["title"])
     for i, family in enumerate(FAMILY_ORDER):
-        rows = rel[rel["family"] == family].sort_values("auc", ascending=False).head(5)
-        draw_radar_panel(draw, (40 + i * 590, 75, 570 + i * 590, 710), FAMILY_DISPLAY[family], rows, "model_type")
+        rows = rel[rel["family"] == family].sort_values("auc", ascending=False).head(6)
+        draw_radar_panel(
+            draw,
+            (40 + i * 590, 25, 570 + i * 590, 660),
+            FAMILY_DISPLAY[family],
+            rows,
+            "model_method",
+            show_legend=True,
+            show_method_legend=False,
+        )
     save(img, "arena_spider_grid.png")
+    save(img, "arena_spider_grid.pdf")
 
     for family in FAMILY_ORDER:
-        rows = rel[rel["family"] == family].sort_values("auc", ascending=False).head(5)
+        rows = rel[rel["family"] == family].sort_values("auc", ascending=False)
         img = Image.new("RGB", (900, 820), "white")
         draw = ImageDraw.Draw(img)
-        draw_radar_panel(draw, (45, 45, 855, 775), f"{FAMILY_DISPLAY[family]} Top Configurations", rows, "model_type")
+        draw_radar_panel(draw, (45, 45, 855, 775), f"{FAMILY_DISPLAY[family]} Top Configurations", rows, "model_method")
         save(img, f"{family}_top_model_spider.png")
+        save(img, f"{family}_top_model_spider.pdf")
 
 
 def parse_binary_prediction_text(value: object) -> float:
@@ -695,9 +772,15 @@ def plot_calibration_curve_sheets(base: pd.DataFrame) -> None:
 
 
 def plot_model_level_auc_leaderboard(base: pd.DataFrame) -> None:
-    grouped = base.groupby(["model_type", "model_type_display", "model_method", "task"], as_index=False)["auc"].mean()
+    axis_font = font(20, False)
+    legend_font = font(18, False)
+    label_font = font(18, False)
+    grouped = base.groupby(
+        ["model_type", "model_type_display", "model_display", "method_display", "task"],
+        as_index=False,
+    )["auc"].mean()
     ranking = (
-        grouped.groupby(["model_type", "model_type_display", "model_method"], as_index=False)["auc"]
+        grouped.groupby(["model_type", "model_type_display", "model_display", "method_display"], as_index=False)["auc"]
         .mean()
         .sort_values(["model_type", "auc"], ascending=[True, False])
     )
@@ -719,18 +802,17 @@ def plot_model_level_auc_leaderboard(base: pd.DataFrame) -> None:
         for tick in [0.4, 0.6, 0.8, 1.0]:
             x = left + (tick - xmin) / (xmax - xmin) * (right - left)
             draw.line((x, top, x, bottom), fill="#E8E8E8", width=2)
-            text_center(draw, (int(x), bottom + 24), f"{tick:.1f}", F["small"])
+            text_center(draw, (int(x), bottom + 26), f"{tick:.1f}", axis_font)
         draw.line((left, bottom, right, bottom), fill="#333333", width=2)
         row_h = (bottom - top) / max(1, len(rows))
         for i, model_row in enumerate(rows.itertuples()):
             cy = top + row_h * (i + 0.5)
-            label = str(model_row.model_method)
-            if len(label) > 27:
-                label = label[:25] + "..."
-            draw.text((x0 + 8, cy - 12), label, font=F["small"], fill="#222222")
+            label = f"{model_row.model_display}\n{model_row.method_display}"
+            draw.text((x0 + 8, cy - 12), label, font=label_font, fill="#222222")
             task_values = grouped[
                 (grouped["model_type"] == model_type)
-                & (grouped["model_method"] == model_row.model_method)
+                & (grouped["model_display"] == model_row.model_display)
+                & (grouped["method_display"] == model_row.method_display)
             ].set_index("task")["auc"]
             for j, task in enumerate(TASK_ORDER):
                 if task not in task_values.index:
@@ -739,14 +821,21 @@ def plot_model_level_auc_leaderboard(base: pd.DataFrame) -> None:
                 y = cy + (j - 1) * 16
                 xv = left + (value - xmin) / (xmax - xmin) * (right - left)
                 draw.rounded_rectangle((left, y - 5, xv, y + 5), radius=2, fill=rgb(TASK_COLORS[task]))
-                draw.text((xv + 6, y - 13), f"{value:.2f}", font=F["bar_value"], fill="#222222")
+                draw.text((xv + 6, y - 13), f"{value:.2f}", font=label_font, fill="#222222")
     legend_y = 1870
-    text_center(draw, (900, legend_y - 32), "Task", F["axis"])
+    text_center(draw, (900, legend_y - 32), "Task", axis_font)
     for i, task in enumerate(TASK_ORDER):
         x = 600 + i * 220
         draw.rectangle((x, legend_y, x + 34, legend_y + 18), fill=rgb(TASK_COLORS[task]))
-        draw.text((x + 44, legend_y - 2), TASK_DISPLAY[task], font=F["tick"], fill="#222222")
+        draw.text((x + 44, legend_y - 2), TASK_DISPLAY[task], font=legend_font, fill="#222222")
+    draw.text(
+        (70, legend_y - 28),
+        "Method key: Linear probing, Zero-shot, Zero-shot prompting",
+        font=legend_font,
+        fill="#333333",
+    )
     save(img, "model_level_auc_leaderboard.png")
+    save(img, "model_level_auc_leaderboard.pdf")
 
 
 def plot_mllm_size_tradeoff(base: pd.DataFrame) -> None:
@@ -859,21 +948,30 @@ def draw_heatmap(
     fmt: str,
     value_fill: str = "#111111",
     value_font=None,
+    label_font=None,
+    label_w_override: int | None = None,
+    col_label_gap: int = 18,
+    row_label_align: str = "left",
 ) -> None:
     x0, y0, x1, y1 = panel
     multiline_center(draw, ((x0 + x1) // 2, y0 + 28), title, F["subtitle"], x1 - x0 - 24, line_spacing=3)
     rows = list(matrix.index)
     cols = list(matrix.columns)
-    label_w = 355 if any(text_size(draw, str(row), F["small"])[0] > 220 for row in rows) else 245
+    label_font = label_font or F["small"]
+    label_w = label_w_override or (355 if any(text_size(draw, str(row), label_font)[0] > 220 for row in rows) else 245)
     cell_w = max(42, (x1 - x0 - label_w - 25) / max(1, len(cols)))
     cell_h = max(32, (y1 - y0 - 95) / max(1, len(rows)))
     grid_x = int(x0 + label_w)
     grid_y = int(y0 + 68)
     for j, col in enumerate(cols):
-        text_center(draw, (int(grid_x + cell_w * (j + 0.5)), grid_y - 18), str(col), F["small"])
+        text_center(draw, (int(grid_x + cell_w * (j + 0.5)), grid_y - col_label_gap), str(col), label_font)
     for i, row in enumerate(rows):
         y = grid_y + i * cell_h
-        multiline_left_center(draw, (x0 + 4, y + cell_h / 2), str(row), F["small"], label_w - 12)
+        if row_label_align == "right":
+            rw, rh = text_size(draw, str(row), label_font)
+            draw.text((grid_x - rw - 8, y + cell_h / 2 - rh / 2), str(row), font=label_font, fill="#222222")
+        else:
+            multiline_left_center(draw, (x0 + 4, y + cell_h / 2), str(row), label_font, label_w - 12)
         for j, col in enumerate(cols):
             x = grid_x + j * cell_w
             v = matrix.loc[row, col]
@@ -911,37 +1009,79 @@ def plot_auc_ece_tradeoff(base: pd.DataFrame) -> None:
     grouped = base.groupby(["family", "model_type", "model_display", "method_display"], as_index=False).agg(
         auc=("auc", "mean"), ece=("ece", "mean")
     )
-    img = Image.new("RGB", (2100, 760), "white")
+    img = Image.new("RGB", (2700, 890), "white")
     draw = ImageDraw.Draw(img)
-    text_center(draw, (1050, 34), "AUROC and Calibration Trade-Offs", F["title"])
     xmin, xmax = 0.05, 0.42
     ymin, ymax = 0.48, 1.00
     for k, family in enumerate(FAMILY_ORDER):
-        x0, y0, x1, y1 = 45 + k * 685, 90, 680 + k * 685, 700
+        x0, y0, x1, y1 = 45 + k * 875, 20, 850 + k * 875, 850
         multiline_center(draw, ((x0 + x1) // 2, y0 + 24), FAMILY_DISPLAY[family], F["subtitle"], x1 - x0 - 30, line_spacing=3)
-        plot = (x0 + 78, y0 + 58, x1 - 34, y1 - 72)
+        plot = (x0 + 115, y0 + 88, x1 - 45, y1 - 95)
         draw_x_axis(draw, plot, xmin, xmax, [0.10, 0.20, 0.30, 0.40], "ECE")
         left, top, right, bottom = plot
         for tick in [0.50, 0.60, 0.70, 0.80, 0.90, 1.00]:
             y = bottom - (tick - ymin) / (ymax - ymin) * (bottom - top)
             draw.line((left, y, right, y), fill="#E8E8E8", width=2)
-            draw.text((x0 + 18, y - 9), f"{tick:.2f}", font=F["small"], fill="#333333")
-        draw.text((x0 + 8, top + 190), "AUROC", font=F["axis"], fill="#222222")
+            draw.text((x0 + 20, y - 9), f"{tick:.2f}", font=F["small"], fill="#333333")
+        draw.text((left - 92, top - 42), "AUROC", font=F["axis"], fill="#222222")
         subset = grouped[grouped["family"] == family].sort_values("auc", ascending=False)
+        points = []
+        if family == "vlm":
+            legend = [
+                ("General LP", TRADEOFF_COLORS["vlm_general_linear_probing"]),
+                ("General ZS", TRADEOFF_COLORS["vlm_general_zero_shot"]),
+                ("Ophthalmic LP", TRADEOFF_COLORS["vlm_ophthalmo_linear_probing"]),
+                ("Ophthalmic ZS", TRADEOFF_COLORS["vlm_ophthalmo_zero_shot"]),
+            ]
+            for n, (legend_label, legend_color) in enumerate(legend):
+                lx = x0 + 112 + (n % 2) * 220
+                ly = top + 8 + (n // 2) * 26
+                draw.ellipse((lx, ly, lx + 14, ly + 14), fill=rgb(legend_color), outline="white", width=2)
+                draw.text((lx + 20, ly - 3), legend_label, font=F["small"], fill="#222222")
         for row in subset.itertuples():
             px = left + (row.ece - xmin) / (xmax - xmin) * (right - left)
             py = bottom - (row.auc - ymin) / (ymax - ymin) * (bottom - top)
-            color = rgb(COLORS[row.model_type])
+            color_key = f"{row.model_type}_{row.method_display.lower().replace('-', '_').replace(' ', '_')}"
+            color = rgb(TRADEOFF_COLORS.get(color_key, COLORS[row.model_type]))
             draw.ellipse((px - 7, py - 7, px + 7, py + 7), fill=color, outline="white", width=2)
             label = row.model_display
             if row.method_display == "Zero-shot":
                 label += " ZS"
-            elif row.method_display == "Linear probe":
+            elif row.method_display in {"Linear probe", "Linear probing"}:
                 label += " LP"
-            lw, _ = text_size(draw, label, F["small"])
-            lx = px + 10 if px < right - lw - 10 else px - lw - 10
-            ly = min(max(py - 9, top + 6), bottom - 20)
-            draw.text((lx, ly), label, font=F["small"], fill="#222222")
+            points.append({"x": px, "y": py, "label": label})
+
+        def spread(items: list[dict[str, float | str]], min_y: float, max_y: float, step: float) -> list[float]:
+            if not items:
+                return []
+            ys = [float(item["y"]) for item in sorted(items, key=lambda item: float(item["y"]))]
+            out = []
+            for y in ys:
+                out.append(min(max(y, min_y), max_y) if not out else min(max(y, out[-1] + step), max_y))
+            overflow = out[-1] - max_y
+            if overflow > 0:
+                out = [y - overflow for y in out]
+                for i in range(1, len(out)):
+                    out[i] = max(out[i], out[i - 1] + step)
+            return out
+
+        for side in ["left", "right"]:
+            items = [p for p in points if (p["x"] <= (left + right) / 2) == (side == "left")]
+            items = sorted(items, key=lambda item: float(item["y"]))
+            label_ys = spread(items, top + (72 if family == "vlm" else 8), bottom - 26, 35)
+            for point, label_y in zip(items, label_ys):
+                label = str(point["label"])
+                lw, lh = text_size(draw, label, F["small"])
+                if side == "left":
+                    lx = left + 8
+                    line_end = lx + lw + 4
+                else:
+                    lx = right - lw - 8
+                    line_end = lx - 4
+                ly = label_y - lh / 2
+                draw.line((point["x"], point["y"], line_end, label_y), fill="#B8B8B8", width=1)
+                draw.rectangle((lx - 3, ly - 2, lx + lw + 3, ly + lh + 2), fill="white")
+                draw.text((lx, ly), label, font=F["small"], fill="#222222")
     save(img, "auc_ece_tradeoff.png")
 
 
@@ -1123,6 +1263,9 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
                 summary.loc[mask, f"{delta_col}_p_boot"] = row.p_boot
                 summary.loc[mask, f"{delta_col}_q_boot"] = row.q_boot
 
+    axis_font = font(24, False)
+    tick_font = font(22, False)
+    value_font = font(20, True)
     img = Image.new("RGB", (1500, 660), "white")
     draw = ImageDraw.Draw(img)
     text_center(draw, (750, 34), "Language Model Fine-Tuning Deltas", F["title"])
@@ -1144,7 +1287,7 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
         for tick in np.linspace(ymin, ymax, 5):
             y = y_from_value(tick)
             draw.line((left, y, right, y), fill="#E8E8E8", width=2)
-            draw.text((x0 + 4, y - 8), f"{tick:.3f}", font=F["small"], fill="#333333")
+            draw.text((x0 + 4, y - 8), f"{tick:.3f}", font=tick_font, fill="#333333")
         zero_y = y_from_value(0)
         draw.line((left, zero_y, right, zero_y), fill="#333333", width=2)
         group_w = (right - left) / len(summary)
@@ -1167,8 +1310,8 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
             q_boot = row.get(f"{metric}_q_boot", np.nan)
             if np.isfinite(q_boot) and q_boot < 0.05:
                 draw.text((cx - 5, min(y_top, yv) - 34), "*", font=F["subtitle"], fill="#222222")
-            draw.text((cx - 26, y1 - 70), labels[i], font=F["small"], fill="#222222")
-            draw.text((cx - 28, y_top - 26 if value >= 0 else y_bottom + 6), f"{value:.3f}", font=F["bar_value"], fill="#222222")
+            draw.text((cx - 28, y1 - 70), labels[i], font=axis_font, fill="#222222")
+            draw.text((cx - 30, y_top - 26 if value >= 0 else y_bottom + 6), f"{value:.3f}", font=value_font, fill="#222222")
     save(img, "lm_ft_delta_summary.png")
 
 
@@ -1201,13 +1344,24 @@ def plot_ft_model_delta_heatmap(ft: pd.DataFrame) -> None:
             matrix[col] = vals
     vmax = float(np.nanmax(np.abs(matrix.to_numpy()))) or 0.01
     vmax = max(vmax, 0.015)
-    h = 240 + 42 * len(matrix)
+    h = 200 + 30 * len(matrix)
     img = Image.new("RGB", (1220, h), "white")
     draw = ImageDraw.Draw(img)
     def color(v: float) -> tuple[int, int, int]:
         return diverging_color(v, vmax)
     text_center(draw, (610, 42), "Language Model Fine-Tuning by Model", F["title"])
-    draw_heatmap(draw, (45, 80, 1175, h - 50), "", matrix, color, ".3f")
+    draw_heatmap(
+        draw,
+        (45, 92, 1175, h - 45),
+        "",
+        matrix,
+        color,
+        ".3f",
+        label_font=font(18, False),
+        label_w_override=225,
+        col_label_gap=34,
+        row_label_align="right",
+    )
     save(img, "lm_ft_model_delta_heatmap.png")
 
 

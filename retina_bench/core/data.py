@@ -135,6 +135,7 @@ class RetinaDataset:
             self.df = pd.read_csv(manifest_path)
             self.df = self.df.replace(r"^\s*$", pd.NA, regex=True)
             self.images_dir = path
+            self._resolve_manifest_image_paths(path)
             self._normalize_standard_task_columns()
             self._ensure_eval_splits()
 
@@ -167,6 +168,20 @@ class RetinaDataset:
         if "image_path" not in self.df.columns:
             raise ValueError(f"Dataset {self.dataset_name} manifest is missing image_path")
 
+    def _resolve_manifest_image_paths(self, dataset_root: Path):
+        if "image_path" not in self.df.columns:
+            return
+
+        def resolve_path(value):
+            if pd.isna(value):
+                return value
+            image_path = Path(str(value))
+            if image_path.is_absolute():
+                return str(image_path)
+            return str(dataset_root / image_path)
+
+        self.df["image_path"] = self.df["image_path"].apply(resolve_path)
+
     def _ensure_eval_splits(self):
         if "split" not in self.df.columns:
             self.df["split"] = pd.NA
@@ -183,7 +198,7 @@ class RetinaDataset:
 
         split_df = self._load_external_split_file()
         if split_df is not None and self.split != "all":
-            merge_key = "image_path" if "image_path" in split_df.columns and "image_path" in self.df.columns else "image_id"
+            merge_key = self._split_merge_key(split_df)
             self.df[merge_key] = self.df[merge_key].astype(str)
             split_df[merge_key] = split_df[merge_key].astype(str)
             self.df = self.df.drop(columns=["split"], errors="ignore").merge(
@@ -191,6 +206,7 @@ class RetinaDataset:
                 on=merge_key,
                 how="left",
             )
+            self.df = self.df.drop(columns=["_split_image_path_key"], errors="ignore")
             self.df["split"] = self.df["split"].fillna("all").astype("string").str.lower().str.strip()
             return
 
@@ -204,11 +220,48 @@ class RetinaDataset:
         # available instead of creating a synthetic split.
         self.df["split"] = self.split if self.split != "all" else "all"
 
+    def _image_path_key(self, value):
+        if pd.isna(value):
+            return pd.NA
+        image_path = Path(str(value))
+        if not image_path.is_absolute():
+            return image_path.as_posix()
+
+        dataset_root = self.images_dir if self.images_dir is not None else self.base_dir
+        try:
+            return image_path.resolve().relative_to(dataset_root.resolve()).as_posix()
+        except ValueError:
+            storage_parts = MANIFEST_DATASET_PATHS.get(self.dataset_name, ())
+            storage_name = storage_parts[-1] if storage_parts else self.dataset_name
+            parts = image_path.parts
+            matches = [idx for idx, part in enumerate(parts) if part == storage_name]
+            if matches and matches[-1] + 1 < len(parts):
+                return Path(*parts[matches[-1] + 1:]).as_posix()
+            return image_path.name
+
+    def _split_merge_key(self, split_df):
+        can_merge_on_image_path = "image_path" in split_df.columns and "image_path" in self.df.columns
+        can_merge_on_image_id = "image_id" in split_df.columns and "image_id" in self.df.columns
+
+        if can_merge_on_image_path:
+            self.df["_split_image_path_key"] = self.df["image_path"].apply(self._image_path_key)
+            split_df["_split_image_path_key"] = split_df["image_path"].apply(self._image_path_key)
+            return "_split_image_path_key"
+
+        if can_merge_on_image_id:
+            return "image_id"
+        raise ValueError(f"Split file for {self.dataset_name} has no compatible merge key")
+
     def _load_external_split_file(self):
-        candidates = [
-            SPLIT_DATA_DIR / f"labels_splits_{self.dataset_name}.csv",
-            SPLIT_DATA_DIR / f"labels_splits_{self.dataset_name.replace('-', '_')}.csv",
+        split_dirs = [
+            self.base_dir / "Split_Data",
+            SPLIT_DATA_DIR,
         ]
+        names = [
+            f"labels_splits_{self.dataset_name}.csv",
+            f"labels_splits_{self.dataset_name.replace('-', '_')}.csv",
+        ]
+        candidates = [split_dir / name for split_dir in split_dirs for name in names]
 
         for split_path in candidates:
             if not split_path.exists():

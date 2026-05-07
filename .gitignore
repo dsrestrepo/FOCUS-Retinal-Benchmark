@@ -37,6 +37,11 @@ eda/
 Split_Data/split.ipynb
 update_transformers.sh
 
+# Deprecated hosted-package release helpers
+scripts/create_focus_release.py
+scripts/validate_focus_release.py
+jobs/download/create_focus_release.sh
+
 # Slurm / runtime logs
 logs/
 *.out
