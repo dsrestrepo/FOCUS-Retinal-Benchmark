@@ -32,6 +32,7 @@ FT_FILENAME_RE = re.compile(
 
 
 CORE_METRICS = ["auc", "auprc", "accuracy", "f1", "ece"]
+ALL_TASK_ADAPTER_LABELS = {"all", "all_tasks", "all_tasks_all_prompts"}
 
 
 def model_to_slug(model):
@@ -105,7 +106,7 @@ def iter_ft_files(sft_dir, grpo_dir, slug_to_model):
             meta = parse_ft_filename(path, slug_to_model)
             if meta is None:
                 continue
-            if meta["train_task"] != meta["test_task"]:
+            if meta["train_task"] != meta["test_task"] and meta["train_task"] not in ALL_TASK_ADAPTER_LABELS:
                 continue
             meta["ft_method"] = ft_method
             meta["path"] = path

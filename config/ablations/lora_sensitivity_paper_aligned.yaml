@@ -1,0 +1,80 @@
+# Paper-aligned, task-specific LoRA sensitivity analysis.
+# The existing r16/alpha16/all-linear paper adapters are reused as references.
+models:
+  - "google/gemma-3-27b-it"
+  - "google/medgemma-27b-it"
+
+train_dataset: "brset"
+train_tasks:
+  - "binary_dr"
+prompt_strategy: "base"
+quantization: "8b"
+epochs: 1
+
+variants:
+  - name: "rank8"
+    panel: "rank"
+    value: "8"
+    lora_r: 8
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "all_linear"
+  - name: "rank32"
+    panel: "rank"
+    value: "32"
+    lora_r: 32
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "all_linear"
+  - name: "alpha8"
+    panel: "alpha"
+    value: "8"
+    lora_r: 16
+    lora_alpha: 8
+    lr: 2.0e-5
+    target_modules: "all_linear"
+  - name: "alpha32"
+    panel: "alpha"
+    value: "32"
+    lora_r: 16
+    lora_alpha: 32
+    lr: 2.0e-5
+    target_modules: "all_linear"
+  - name: "attention_only"
+    panel: "target_modules"
+    value: "all_attention"
+    lora_r: 16
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "attention"
+  - name: "query_value_only"
+    panel: "target_modules"
+    value: "query_value"
+    lora_r: 16
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "query_value"
+
+eval_datasets:
+  - "brset"
+  - "mbrset"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "jsiec1000"
+
+tasks:
+  - "binary_dr"
+dataset_tasks:
+  brset: ["binary_dr"]
+  mbrset: ["binary_dr"]
+  rfmid: ["binary_dr"]
+  rfmid_2: ["binary_dr"]
+  idrid: ["binary_dr"]
+  messidor_2: ["binary_dr"]
+  jsiec1000: ["binary_dr"]
+
+batch_size: 16
+max_new_tokens: 128
+split: "test"

@@ -18,6 +18,23 @@ import retina_bench.mllms.prompts as prompts
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+SUPPORTED_TRAIN_TASKS = ["referable_dr", "binary_dr", "glaucoma"]
+
+def tasks_for_dataset(dataset_name, requested_task):
+    if requested_task != "all":
+        return [requested_task]
+
+    try:
+        import yaml
+        with open("config/mllm_config.yaml") as f:
+            cfg = yaml.safe_load(f) or {}
+        tasks = cfg.get("dataset_tasks", {}).get(dataset_name, cfg.get("tasks", SUPPORTED_TRAIN_TASKS))
+    except Exception as e:
+        logger.warning(f"Could not read dataset tasks from config ({e}); using default task list.")
+        tasks = SUPPORTED_TRAIN_TASKS
+
+    return [task for task in tasks if task in SUPPORTED_TRAIN_TASKS]
+
 def get_data_generator(dataset, dataset_name, tasks_list, strategy="cot"):
     """Yields samples for RLVR training."""
     
@@ -198,16 +215,12 @@ def main():
         except Exception as e:
            logger.error(f"Skipping {d_name} due to error: {e}")
 
-    if args.task == "all":
-        TASKS = ["referable_dr", "binary_dr", "glaucoma"]
-    else:
-        TASKS = [args.task]
-        
-    logger.info(f"Training on tasks: {TASKS}")
+    task_map = {d_name: tasks_for_dataset(d_name, args.task) for _, d_name in ds_list}
+    logger.info(f"Training task map: {task_map}")
 
     def gen():
         for d_set, d_name in ds_list:
-            yield from get_data_generator(d_set, d_name, TASKS, strategy=args.prompt_strategy)
+            yield from get_data_generator(d_set, d_name, task_map[d_name], strategy=args.prompt_strategy)
         
     train_dataset = Dataset.from_generator(gen)
     

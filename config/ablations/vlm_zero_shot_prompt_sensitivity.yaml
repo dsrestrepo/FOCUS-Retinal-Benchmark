@@ -1,0 +1,103 @@
+# Rebuttal-only zero-shot label-prompt sensitivity analysis.
+#
+# The paper/base prompts are not re-run. Their predictions are reused from the
+# standard VLM output directory. Each GPU array element loads one model and
+# evaluates all three new prompt variants together so image embeddings are
+# computed only once per dataset/task pair.
+models:
+  - "google/medsiglip-448"
+  - "google/siglip2-base-patch16-224"
+  - "openai/clip-vit-base-patch32"
+  - "EyeCLIP"
+  - "RET-CLIP"
+  - "FLAIR"
+
+model_display_names:
+  google/medsiglip-448: "MedSigLIP"
+  google/siglip2-base-patch16-224: "SigLIP2"
+  openai/clip-vit-base-patch32: "CLIP"
+  EyeCLIP: "EyeCLIP"
+  RET-CLIP: "RET-CLIP"
+  FLAIR: "FLAIR"
+
+datasets:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "refuge"
+  - "g1020"
+  - "jsiec1000"
+
+tasks:
+  - "binary_dr"
+  - "referable_dr"
+  - "glaucoma"
+
+dataset_tasks:
+  brset: ["binary_dr", "referable_dr", "glaucoma"]
+  mbrset: ["binary_dr", "referable_dr", "glaucoma"]
+  papila: ["glaucoma"]
+  rfmid: ["binary_dr", "referable_dr"]
+  rfmid_2: ["binary_dr", "referable_dr"]
+  idrid: ["binary_dr", "referable_dr"]
+  messidor_2: ["binary_dr", "referable_dr"]
+  refuge: ["glaucoma"]
+  g1020: ["glaucoma"]
+  jsiec1000: ["binary_dr", "referable_dr"]
+
+# The original descriptions remain the table reference:
+#   binary_dr:
+#     0: "A fundus photograph of a healthy retina without diabetic retinopathy."
+#     1: "A fundus photograph of a retina with diabetic retinopathy."
+# See retina_bench/vlms/prompts.py for all three original task pairs.
+base_variant:
+  name: "base"
+  display_name: "Base (paper)"
+
+prompt_variants:
+  - name: "label_only"
+    display_name: "Label only"
+    prompts:
+      binary_dr:
+        0: "No diabetic retinopathy"
+        1: "Diabetic retinopathy"
+      referable_dr:
+        0: "No referable diabetic retinopathy"
+        1: "Referable diabetic retinopathy"
+      glaucoma:
+        0: "No glaucoma"
+        1: "Glaucoma"
+
+  - name: "with_without"
+    display_name: "With/without"
+    prompts:
+      binary_dr:
+        0: "A retina without diabetic retinopathy"
+        1: "A retina with diabetic retinopathy"
+      referable_dr:
+        0: "A retina without referable diabetic retinopathy"
+        1: "A retina with referable diabetic retinopathy"
+      glaucoma:
+        0: "A retina without glaucoma"
+        1: "A retina with glaucoma"
+
+  - name: "finding_statement"
+    display_name: "Finding statement"
+    prompts:
+      binary_dr:
+        0: "A retinal image showing no signs of diabetic retinopathy"
+        1: "A retinal image showing signs of diabetic retinopathy"
+      referable_dr:
+        0: "A retinal image showing no signs of referable diabetic retinopathy"
+        1: "A retinal image showing signs of referable diabetic retinopathy"
+      glaucoma:
+        0: "A retinal image showing no signs of glaucoma"
+        1: "A retinal image showing signs of glaucoma"
+
+batch_size: 16
+logit_scale: 100.0
+split: "test"

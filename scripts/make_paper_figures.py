@@ -34,6 +34,8 @@ TRIM_OUTPUTS = {
     "auc_ece_tradeoff.png",
     "arena_spider_grid.png",
     "arena_spider_grid.pdf",
+    "lm_ft_delta_summary.png",
+    "lm_ft_model_delta_heatmap.png",
     "mllm_size_domain_tradeoff.png",
     "mllm_size_domain_tradeoff.pdf",
 }
@@ -386,14 +388,20 @@ def draw_x_axis(
     xmax: float,
     ticks: Iterable[float],
     label: str,
+    tick_font: ImageFont.ImageFont | None = None,
+    label_font: ImageFont.ImageFont | None = None,
+    tick_offset: int = 26,
+    label_offset: int = 60,
 ) -> None:
+    tick_font = tick_font or F["small"]
+    label_font = label_font or F["axis"]
     left, top, right, bottom = plot
     draw.line((left, bottom, right, bottom), fill="#333333", width=2)
     for tick in ticks:
         x = left + (tick - xmin) / (xmax - xmin) * (right - left)
         draw.line((x, top, x, bottom), fill="#E8E8E8", width=2)
-        text_center(draw, (int(x), bottom + 26), f"{tick:.2f}", F["small"], "#333333")
-    text_center(draw, ((left + right) // 2, bottom + 60), label, F["axis"])
+        text_center(draw, (int(x), bottom + tick_offset), f"{tick:.2f}", tick_font, "#333333")
+    text_center(draw, ((left + right) // 2, bottom + label_offset), label, label_font)
 
 
 def hbar_panel(
@@ -842,57 +850,107 @@ def plot_mllm_size_tradeoff(base: pd.DataFrame) -> None:
     rows = base[base["family"] == "mllm"].copy()
     if rows.empty:
         return
-    summary = rows.groupby(["model", "model_display", "model_type"], as_index=False).agg(
-        auc=("auc", "mean"),
-        ece=("ece", "mean"),
-        accuracy=("accuracy", "mean"),
-    )
+    summary = reliability_scores(rows, ["model", "model_display", "model_type"])
     summary["params_b"] = summary["model"].map(mllm_parameter_billions)
     summary = summary.dropna(subset=["params_b"])
     if summary.empty:
         return
 
-    img = Image.new("RGB", (1120, 830), "white")
+    panel_font = font(58, True)
+    axis_font = font(52, False)
+    tick_font = font(44, False)
+    label_font = font(44, True)
+    note_font = font(38, False)
+    img = Image.new("RGBA", (3300, 1195), "white")
     draw = ImageDraw.Draw(img)
-    text_center(draw, (560, 34), "MLLM Size, Domain Specialization, and Reliability", F["title"])
-    plot = (120, 105, 1040, 590)
-    left, top, right, bottom = plot
-    xmin, xmax = 3.0, 30.0
-    ymin, ymax = 0.55, 0.90
-    for tick in [4, 8, 16, 27]:
-        x = left + (tick - xmin) / (xmax - xmin) * (right - left)
-        draw.line((x, top, x, bottom), fill="#E8E8E8", width=2)
-        text_center(draw, (int(x), bottom + 24), str(tick), F["small"])
-    for tick in [0.55, 0.65, 0.75, 0.85]:
-        y = bottom - (tick - ymin) / (ymax - ymin) * (bottom - top)
-        draw.line((left, y, right, y), fill="#E8E8E8", width=2)
-        draw.text((58, y - 10), f"{tick:.2f}", font=F["small"], fill="#333333")
-    draw.line((left, bottom, right, bottom), fill="#333333", width=2)
-    draw.line((left, top, left, bottom), fill="#333333", width=2)
-    text_center(draw, ((left + right) // 2, bottom + 62), "Approximate parameter count (B)", F["axis"])
-    text_center(draw, (55, (top + bottom) // 2), "AUROC", F["axis"])
-    label_offsets = {
-        "MedGemma 4B": (-4, -28),
-        "MedGemma 1.5 4B": (-4, 6),
-        "Gemma-3-27B": (4, 12),
+    panels = [
+        ("ece", "ECE", 0.15, 0.60, [0.20, 0.30, 0.40, 0.50, 0.60], (135, 110, 1015, 850)),
+        ("fairness_gap", "Fairness gap", 0.00, 0.10, [0.00, 0.025, 0.050, 0.075, 0.100], (1210, 110, 2090, 850)),
+        ("quality_gap", "Image-quality gap", 0.00, 0.06, [0.00, 0.015, 0.030, 0.045, 0.060], (2285, 110, 3165, 850)),
+    ]
+    ymin, ymax = 0.55, 0.85
+    label_overrides = {
+        ("ece", "Qwen3-VL-8B"): ("below", 0, 4),
+        ("ece", "MedGemma 27B"): ("right_center", 12, 0),
+        ("ece", "MedGemma 1.5 4B"): ("right_center", 12, 0),
+        ("ece", "MedGemma 4B"): ("right_center", 12, -46),
+        ("ece", "Gemma-3-27B"): ("above", 0, 0),
+        ("fairness_gap", "MedGemma 27B"): ("top_left", 0, 72),
+        ("fairness_gap", "LLaVA-NeXT-8B"): ("above", 0, 0),
+        ("fairness_gap", "Qwen3-VL-8B"): ("right_center", 12, 0),
+        ("fairness_gap", "Gemma-3-27B"): ("above", 0, 0),
+        ("fairness_gap", "MedGemma 4B"): ("below", 0, 0),
+        ("fairness_gap", "MedGemma 1.5 4B"): ("above", 0, 0),
+        ("quality_gap", "MedGemma 27B"): ("below", 0, 0),
+        ("quality_gap", "MedGemma 1.5 4B"): ("below", 0, 42),
+        ("quality_gap", "Qwen3-VL-8B"): ("below", 0, 0),
+        ("quality_gap", "MedGemma 4B"): ("above", 0, 0),
+        ("quality_gap", "Gemma-3-27B"): ("left", -8, -22),
+        ("quality_gap", "LLaVA-NeXT-8B"): ("left", -8, -8),
     }
-    for row in summary.itertuples():
-        x = left + (float(row.params_b) - xmin) / (xmax - xmin) * (right - left)
-        y = bottom - (float(row.auc) - ymin) / (ymax - ymin) * (bottom - top)
-        color = COLORS[row.model_type]
-        radius = int(13 + 38 * max(0.0, min(0.35, 0.35 - float(row.ece))) / 0.35)
-        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=rgb(color), outline="#222222", width=2)
-        dx, dy = label_offsets.get(row.model_display, (4, -9))
-        draw.text((x + radius + 8 + dx, y + dy), row.model_display, font=F["small"], fill="#222222")
-    legend_items = [
+    for metric, xlabel, xmin, xmax, xticks, plot in panels:
+        left, top, right, bottom = plot
+        text_center(draw, ((left + right) // 2, top - 58), xlabel, panel_font)
+        for tick in xticks:
+            x = left + (tick - xmin) / (xmax - xmin) * (right - left)
+            draw.line((x, top, x, bottom), fill="#ECECEC", width=2)
+            text_center(draw, (int(x), bottom + 42), f"{tick:.2f}", tick_font)
+        for tick in [0.55, 0.65, 0.75, 0.85]:
+            y = bottom - (tick - ymin) / (ymax - ymin) * (bottom - top)
+            draw.line((left, y, right, y), fill="#ECECEC", width=2)
+            draw.text((left - 92, y - 25), f"{tick:.2f}", font=tick_font, fill="#333333")
+        draw.line((left, bottom, right, bottom), fill="#333333", width=4)
+        draw.line((left, top, left, bottom), fill="#333333", width=4)
+        text_center(draw, ((left + right) // 2, bottom + 112), xlabel, axis_font)
+        draw.text((left - 92, top - 80), "AUROC", font=axis_font, fill="#222222")
+        for row in summary.itertuples():
+            value = getattr(row, metric)
+            if pd.isna(value):
+                continue
+            x = left + (float(value) - xmin) / (xmax - xmin) * (right - left)
+            y = bottom - (float(row.auc) - ymin) / (ymax - ymin) * (bottom - top)
+            radius = int(26 + 38 * math.sqrt(float(row.params_b) / 27.0))
+            color = COLORS[row.model_type]
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=rgb(color), outline="white", width=7)
+            draw.ellipse((x - radius, y - radius, x + radius, y + radius), outline="#222222", width=2)
+            lw, lh = text_size(draw, row.model_display, label_font)
+            placement, dx, dy = label_overrides.get(
+                (metric, row.model_display),
+                ("right", 12, -78 if row.model_type == "mllm_general" else 34),
+            )
+            if placement == "left":
+                lx, ly = x - radius - lw - 16 + dx, y + dy
+            elif placement == "right_center":
+                lx, ly = x + radius + 16 + dx, y - lh / 2 + dy
+            elif placement == "above":
+                lx, ly = x - lw / 2 + dx, y - radius - lh - 12 + dy
+            elif placement == "below":
+                lx, ly = x - lw / 2 + dx, y + radius + 12 + dy
+            elif placement == "top_left":
+                lx, ly = left + 18 + dx, top + 20 + dy
+            else:
+                lx, ly = x + radius + dx, y + dy
+            label_box = (lx - 9, ly - 6, lx + lw + 9, ly + lh + 7)
+            overlay = Image.new("RGBA", img.size, (255, 255, 255, 0))
+            overlay_draw = ImageDraw.Draw(overlay)
+            overlay_draw.rectangle(label_box, fill=(255, 255, 255, 165))
+            img.alpha_composite(overlay)
+            draw.text((lx, ly), row.model_display, font=label_font, fill="#222222")
+
+    legend_y = 1048
+    for i, (key, label) in enumerate([
         ("mllm_general", MODEL_TYPE_DISPLAY["mllm_general"]),
         ("mllm_medical", MODEL_TYPE_DISPLAY["mllm_medical"]),
-    ]
-    for i, (key, label) in enumerate(legend_items):
-        x = 150 + i * 420
-        y = 700
-        draw.ellipse((x, y - 10, x + 20, y + 10), fill=rgb(COLORS[key]), outline="#222222")
-        multiline_left_center(draw, (x + 30, y), label, F["small"], 360)
+    ]):
+        x = 180 + i * 720
+        draw.ellipse((x, legend_y - 24, x + 48, legend_y + 24), fill=rgb(COLORS[key]), outline="#222222", width=3)
+        draw.text((x + 65, legend_y - 27), label, font=note_font, fill="#222222")
+    for i, size in enumerate([4, 8, 27]):
+        x = 1750 + i * 205
+        radius = int(26 + 38 * math.sqrt(size / 27.0))
+        draw.ellipse((x - radius, legend_y - radius, x + radius, legend_y + radius), fill="#D8D8D8", outline="#222222", width=3)
+        text_center(draw, (x, legend_y + radius + 34), f"{size}B", note_font)
+    draw.text((2460, legend_y - 27), "Parameters", font=note_font, fill="#222222")
     save(img, "mllm_size_domain_tradeoff.png")
     save(img, "mllm_size_domain_tradeoff.pdf")
 
@@ -1009,47 +1067,81 @@ def plot_auc_ece_tradeoff(base: pd.DataFrame) -> None:
     grouped = base.groupby(["family", "model_type", "model_display", "method_display"], as_index=False).agg(
         auc=("auc", "mean"), ece=("ece", "mean")
     )
-    img = Image.new("RGB", (2700, 890), "white")
+    title_font = font(68, True)
+    axis_font = font(68, False)
+    tick_font = font(58, False)
+    label_font = font(54, False)
+    marker_r = 25
+    img = Image.new("RGBA", (4000, 1550), "white")
     draw = ImageDraw.Draw(img)
-    xmin, xmax = 0.05, 0.42
+    xmin = 0.05
     ymin, ymax = 0.48, 1.00
+    label_side_override = {
+        "RETFound MAE SH": "right",
+        "RETFound OCT": "left",
+        "RETFound MAE MEH": "right",
+        "RETFound DINOv2 MEH": "right",
+        "RETFound DINOv2 SH": "left",
+        "EyeCLIP ZS": "left",
+    }
+    label_y_offset = {
+        "LLaVA-NeXT-8B": 72,
+        "Gemma-3-27B": 70,
+        "MedGemma 4B": -70,
+        "MedSigLIP": -64,
+        "VisionFM LP": -64,
+        "RETFound MAE SH LP": -64,
+        "RETFound MAE MEH LP": -64,
+        "RETFound DINOv2 MEH LP": -64,
+        "EyeCLIP LP": -64,
+        "CLIP-B/32 ZS": -64,
+    }
     for k, family in enumerate(FAMILY_ORDER):
-        x0, y0, x1, y1 = 45 + k * 875, 20, 850 + k * 875, 850
-        multiline_center(draw, ((x0 + x1) // 2, y0 + 24), FAMILY_DISPLAY[family], F["subtitle"], x1 - x0 - 30, line_spacing=3)
-        plot = (x0 + 115, y0 + 88, x1 - 45, y1 - 95)
-        draw_x_axis(draw, plot, xmin, xmax, [0.10, 0.20, 0.30, 0.40], "ECE")
+        xmax = 0.60 if family == "mllm" else 0.42
+        x_ticks = [0.10, 0.20, 0.30, 0.40, 0.50, 0.60] if family == "mllm" else [0.10, 0.20, 0.30, 0.40]
+        panel_w = 1305
+        x0, y0, x1, y1 = 25 + k * panel_w, 18, 1285 + k * panel_w, 1480
+        multiline_center(draw, ((x0 + x1) // 2, y0 + 82), FAMILY_DISPLAY[family], title_font, x1 - x0 - 25, line_spacing=6)
+        plot = (x0 + 235, y0 + 212, x1 - 55, y1 - 250)
+        draw_x_axis(
+            draw,
+            plot,
+            xmin,
+            xmax,
+            x_ticks,
+            "ECE",
+            tick_font=tick_font,
+            label_font=axis_font,
+            tick_offset=62,
+            label_offset=145,
+        )
         left, top, right, bottom = plot
+        draw.line((left, top, left, bottom), fill="#222222", width=4)
         for tick in [0.50, 0.60, 0.70, 0.80, 0.90, 1.00]:
             y = bottom - (tick - ymin) / (ymax - ymin) * (bottom - top)
             draw.line((left, y, right, y), fill="#E8E8E8", width=2)
-            draw.text((x0 + 20, y - 9), f"{tick:.2f}", font=F["small"], fill="#333333")
-        draw.text((left - 92, top - 42), "AUROC", font=F["axis"], fill="#222222")
+            draw.text((x0 + 20, y - 35), f"{tick:.2f}", font=tick_font, fill="#333333")
+        draw.text((left - 220, top - 100), "AUROC", font=axis_font, fill="#222222")
         subset = grouped[grouped["family"] == family].sort_values("auc", ascending=False)
         points = []
-        if family == "vlm":
-            legend = [
-                ("General LP", TRADEOFF_COLORS["vlm_general_linear_probing"]),
-                ("General ZS", TRADEOFF_COLORS["vlm_general_zero_shot"]),
-                ("Ophthalmic LP", TRADEOFF_COLORS["vlm_ophthalmo_linear_probing"]),
-                ("Ophthalmic ZS", TRADEOFF_COLORS["vlm_ophthalmo_zero_shot"]),
-            ]
-            for n, (legend_label, legend_color) in enumerate(legend):
-                lx = x0 + 112 + (n % 2) * 220
-                ly = top + 8 + (n // 2) * 26
-                draw.ellipse((lx, ly, lx + 14, ly + 14), fill=rgb(legend_color), outline="white", width=2)
-                draw.text((lx + 20, ly - 3), legend_label, font=F["small"], fill="#222222")
         for row in subset.itertuples():
             px = left + (row.ece - xmin) / (xmax - xmin) * (right - left)
             py = bottom - (row.auc - ymin) / (ymax - ymin) * (bottom - top)
             color_key = f"{row.model_type}_{row.method_display.lower().replace('-', '_').replace(' ', '_')}"
             color = rgb(TRADEOFF_COLORS.get(color_key, COLORS[row.model_type]))
-            draw.ellipse((px - 7, py - 7, px + 7, py + 7), fill=color, outline="white", width=2)
+            draw.ellipse((px - marker_r, py - marker_r, px + marker_r, py + marker_r), fill=color, outline="white", width=4)
             label = row.model_display
             if row.method_display == "Zero-shot":
                 label += " ZS"
             elif row.method_display in {"Linear probe", "Linear probing"}:
                 label += " LP"
-            points.append({"x": px, "y": py, "label": label})
+            points.append({
+                "x": px,
+                "y": py,
+                "label": label,
+                "side": label_side_override.get(label, label_side_override.get(row.model_display)),
+                "dy": label_y_offset.get(label, label_y_offset.get(row.model_display, 0)),
+            })
 
         def spread(items: list[dict[str, float | str]], min_y: float, max_y: float, step: float) -> list[float]:
             if not items:
@@ -1066,22 +1158,31 @@ def plot_auc_ece_tradeoff(base: pd.DataFrame) -> None:
             return out
 
         for side in ["left", "right"]:
-            items = [p for p in points if (p["x"] <= (left + right) / 2) == (side == "left")]
+            items = [
+                p
+                for p in points
+                if p["side"] == side or (p["side"] is None and (p["x"] <= (left + right) / 2) == (side == "left"))
+            ]
             items = sorted(items, key=lambda item: float(item["y"]))
-            label_ys = spread(items, top + (72 if family == "vlm" else 8), bottom - 26, 35)
+            label_ys = spread(items, top + 35, bottom - 80, 104)
             for point, label_y in zip(items, label_ys):
+                label_y = min(max(label_y + float(point["dy"]), top + 35), bottom - 80)
                 label = str(point["label"])
-                lw, lh = text_size(draw, label, F["small"])
+                lw, lh = text_size(draw, label, label_font)
                 if side == "left":
-                    lx = left + 8
-                    line_end = lx + lw + 4
+                    lx = left + 12
+                    line_end = lx + lw + 12
                 else:
-                    lx = right - lw - 8
-                    line_end = lx - 4
+                    lx = right - lw - 12
+                    line_end = lx - 12
                 ly = label_y - lh / 2
-                draw.line((point["x"], point["y"], line_end, label_y), fill="#B8B8B8", width=1)
-                draw.rectangle((lx - 3, ly - 2, lx + lw + 3, ly + lh + 2), fill="white")
-                draw.text((lx, ly), label, font=F["small"], fill="#222222")
+                draw.line((point["x"], point["y"], line_end, label_y), fill="#B8B8B8", width=4)
+                label_box = (lx - 8, ly - 6, lx + lw + 8, ly + lh + 6)
+                overlay = Image.new("RGBA", img.size, (255, 255, 255, 0))
+                overlay_draw = ImageDraw.Draw(overlay)
+                overlay_draw.rectangle(label_box, fill=(255, 255, 255, 145))
+                img.alpha_composite(overlay)
+                draw.text((lx, ly), label, font=label_font, fill="#222222")
     save(img, "auc_ece_tradeoff.png")
 
 
@@ -1263,12 +1364,14 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
                 summary.loc[mask, f"{delta_col}_p_boot"] = row.p_boot
                 summary.loc[mask, f"{delta_col}_q_boot"] = row.q_boot
 
-    axis_font = font(24, False)
-    tick_font = font(22, False)
-    value_font = font(20, True)
-    img = Image.new("RGB", (1500, 660), "white")
+    title_font = font(56, True)
+    subtitle_font = font(44, True)
+    axis_font = font(40, False)
+    tick_font = font(37, False)
+    value_font = font(36, True)
+    img = Image.new("RGB", (1430, 540), "white")
     draw = ImageDraw.Draw(img)
-    text_center(draw, (750, 34), "Language Model Fine-Tuning Deltas", F["title"])
+    text_center(draw, (715, 34), "Language Model Fine-Tuning Deltas", title_font)
     metrics = [
         ("delta_auc", "Delta AUROC", -0.008, 0.010),
         ("delta_accuracy", "Delta Accuracy", -0.005, 0.040),
@@ -1276,9 +1379,9 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
     ]
     labels = [r.domain.replace("_", "-") for r in summary.itertuples()]
     for p, (metric, title, ymin, ymax) in enumerate(metrics):
-        x0, y0, x1, y1 = 45 + p * 485, 90, 470 + p * 485, 590
-        text_center(draw, ((x0 + x1) // 2, y0 + 22), title, F["subtitle"])
-        plot = (x0 + 55, y0 + 60, x1 - 30, y1 - 85)
+        x0, y0, x1, y1 = 18 + p * 468, 88, 440 + p * 468, 505
+        text_center(draw, ((x0 + x1) // 2, y0 + 23), title, subtitle_font)
+        plot = (x0 + 92, y0 + 72, x1 - 18, y1 - 70)
         left, top, right, bottom = plot
         def y_from_value(v: float) -> float:
             clipped = min(max(float(v), ymin), ymax)
@@ -1287,7 +1390,7 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
         for tick in np.linspace(ymin, ymax, 5):
             y = y_from_value(tick)
             draw.line((left, y, right, y), fill="#E8E8E8", width=2)
-            draw.text((x0 + 4, y - 8), f"{tick:.3f}", font=tick_font, fill="#333333")
+            draw.text((x0 + 0, y - 18), f"{tick:.3f}", font=tick_font, fill="#333333")
         zero_y = y_from_value(0)
         draw.line((left, zero_y, right, zero_y), fill="#333333", width=2)
         group_w = (right - left) / len(summary)
@@ -1310,8 +1413,9 @@ def plot_ft_delta_summary(ft: pd.DataFrame) -> None:
             q_boot = row.get(f"{metric}_q_boot", np.nan)
             if np.isfinite(q_boot) and q_boot < 0.05:
                 draw.text((cx - 5, min(y_top, yv) - 34), "*", font=F["subtitle"], fill="#222222")
-            draw.text((cx - 28, y1 - 70), labels[i], font=axis_font, fill="#222222")
-            draw.text((cx - 30, y_top - 26 if value >= 0 else y_bottom + 6), f"{value:.3f}", font=value_font, fill="#222222")
+            lw, _ = text_size(draw, labels[i], axis_font)
+            draw.text((cx - lw / 2, y1 - 64), labels[i], font=axis_font, fill="#222222")
+            draw.text((cx - 47, y_top - 42 if value >= 0 else y_bottom + 10), f"{value:.3f}", font=value_font, fill="#222222")
     save(img, "lm_ft_delta_summary.png")
 
 
@@ -1344,22 +1448,23 @@ def plot_ft_model_delta_heatmap(ft: pd.DataFrame) -> None:
             matrix[col] = vals
     vmax = float(np.nanmax(np.abs(matrix.to_numpy()))) or 0.01
     vmax = max(vmax, 0.015)
-    h = 200 + 30 * len(matrix)
-    img = Image.new("RGB", (1220, h), "white")
+    h = 245 + 46 * len(matrix)
+    img = Image.new("RGB", (1430, h), "white")
     draw = ImageDraw.Draw(img)
     def color(v: float) -> tuple[int, int, int]:
         return diverging_color(v, vmax)
-    text_center(draw, (610, 42), "Language Model Fine-Tuning by Model", F["title"])
+    text_center(draw, (715, 54), "Language Model Fine-Tuning by Model", font(58, True))
     draw_heatmap(
         draw,
-        (45, 92, 1175, h - 45),
+        (10, 112, 1415, h - 35),
         "",
         matrix,
         color,
         ".3f",
-        label_font=font(18, False),
-        label_w_override=225,
-        col_label_gap=34,
+        value_font=font(34, True),
+        label_font=font(36, False),
+        label_w_override=310,
+        col_label_gap=54,
         row_label_align="right",
     )
     save(img, "lm_ft_model_delta_heatmap.png")

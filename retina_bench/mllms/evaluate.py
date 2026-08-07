@@ -256,7 +256,7 @@ def main():
                 
         except Exception as e:
             print(f"Error in batch {i}: {e}")
-            # Save partial?
+            
             continue
             
     # 5. Save Results

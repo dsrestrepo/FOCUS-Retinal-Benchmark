@@ -540,6 +540,32 @@ Let's think step by step to determine if the Diabetic Retinopathy is referable. 
 Finally, provide your answer as "Answer: yes" or "Answer: no".
 """.strip()
 
+def BRSET_GLAUCOMA_COT_PROMPT(row):
+    base_prompt = BRSET_GLAUCOMA_PROMPT(row)
+    prompt_lines = base_prompt.split('\n')
+    filtered_lines = [line for line in prompt_lines if 'Respond only with "yes" or "no"' not in line]
+    base_prompt = "\n".join(filtered_lines).strip()
+
+    return f"""
+{base_prompt}
+
+Let's think step by step to determine whether glaucoma or suspicious glaucomatous optic disc changes are present.
+Finally, provide your answer as "Answer: yes" or "Answer: no".
+""".strip()
+
+def mBRSET_GLAUCOMA_COT_PROMPT(row):
+    base_prompt = mBRSET_GLAUCOMA_PROMPT(row)
+    prompt_lines = base_prompt.split('\n')
+    filtered_lines = [line for line in prompt_lines if 'Respond only with "yes" or "no"' not in line]
+    base_prompt = "\n".join(filtered_lines).strip()
+
+    return f"""
+{base_prompt}
+
+Let's think step by step to determine whether glaucoma or increased cup-disc ratio is present.
+Finally, provide your answer as "Answer: yes" or "Answer: no".
+""".strip()
+
 
 ######################## Role Prompts #########################
 
@@ -556,6 +582,12 @@ def BRSET_REFERABLE_DR_ROLE_PROMPT(row):
 
 def mBRSET_REFERABLE_DR_ROLE_PROMPT(row):
     return f"{ROLE_HEADER}\n\n{mBRSET_REFERABLE_DR_PROMPT(row)}"
+
+def BRSET_GLAUCOMA_ROLE_PROMPT(row):
+    return f"{ROLE_HEADER}\n\n{BRSET_GLAUCOMA_PROMPT(row)}"
+
+def mBRSET_GLAUCOMA_ROLE_PROMPT(row):
+    return f"{ROLE_HEADER}\n\n{mBRSET_GLAUCOMA_PROMPT(row)}"
 
 
 ######################## GRPO Specific Prompts #########################
@@ -646,12 +678,16 @@ def get_prompt_func(dataset_name, task, strategy="base"):
         ("mbrset", "binary_dr", "cot"): mBRSET_BINARY_DR_COT_PROMPT,
         ("brset", "referable_dr", "cot"): BRSET_REFERABLE_DR_COT_PROMPT,
         ("mbrset", "referable_dr", "cot"): mBRSET_REFERABLE_DR_COT_PROMPT,
+        ("brset", "glaucoma", "cot"): BRSET_GLAUCOMA_COT_PROMPT,
+        ("mbrset", "glaucoma", "cot"): mBRSET_GLAUCOMA_COT_PROMPT,
         
         # Role
         ("brset", "binary_dr", "role"): BRSET_BINARY_DR_ROLE_PROMPT,
         ("mbrset", "binary_dr", "role"): mBRSET_BINARY_DR_ROLE_PROMPT,
         ("brset", "referable_dr", "role"): BRSET_REFERABLE_DR_ROLE_PROMPT,
         ("mbrset", "referable_dr", "role"): mBRSET_REFERABLE_DR_ROLE_PROMPT,
+        ("brset", "glaucoma", "role"): BRSET_GLAUCOMA_ROLE_PROMPT,
+        ("mbrset", "glaucoma", "role"): mBRSET_GLAUCOMA_ROLE_PROMPT,
         
         # Base GRPO
         ("brset", "binary_dr", "base_grpo"): BRSET_BINARY_DR_BASE_GRPO_PROMPT,

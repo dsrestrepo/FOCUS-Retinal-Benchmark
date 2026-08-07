@@ -91,3 +91,5 @@ paper/
 
 # Dependency snapshots generated during local experiments
 requirements_backup.txt
+
+multilingual_eval/

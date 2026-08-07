@@ -69,7 +69,7 @@ sft_strategies:
   - "base"
 grpo_strategies:
   - "base_grpo"
-quantization: "16b"
+quantization: "8b"
 use_unsloth: false
 
 # Optional: use these only for fine-tuned adapter evaluation, to test whether

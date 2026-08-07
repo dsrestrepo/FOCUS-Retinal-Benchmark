@@ -1,0 +1,95 @@
+# Small rebuttal-only sensitivity grid around the paper setting:
+# LoRA rank 16, alpha 16, learning rate 2e-5.
+#
+# The original r16/alpha16/all-linear/lr2e-5 checkpoint is the reference and
+# is not retrained.
+models:
+  - "google/gemma-3-27b-it"
+  - "google/medgemma-27b-it"
+
+train_datasets:
+  - "brset"
+
+task: "all"
+prompt_strategy: "all"
+quantization: "8b"
+epochs: 1
+
+variants:
+  # Rank panel: alpha, target modules, and learning rate stay fixed.
+  - name: "rank8"
+    panel: "rank"
+    value: "8"
+    lora_r: 8
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "all_linear"
+  - name: "rank32"
+    panel: "rank"
+    value: "32"
+    lora_r: 32
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "all_linear"
+
+  # Alpha panel: rank, target modules, and learning rate stay fixed.
+  - name: "alpha8"
+    panel: "alpha"
+    value: "8"
+    lora_r: 16
+    lora_alpha: 8
+    lr: 2.0e-5
+    target_modules: "all_linear"
+  - name: "alpha32"
+    panel: "alpha"
+    value: "32"
+    lora_r: 16
+    lora_alpha: 32
+    lr: 2.0e-5
+    target_modules: "all_linear"
+
+  # Target-module panel: rank, alpha, and learning rate stay fixed.
+  - name: "attention_only"
+    panel: "target_modules"
+    value: "all_attention"
+    lora_r: 16
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "attention"
+  - name: "query_value_only"
+    panel: "target_modules"
+    value: "query_value"
+    lora_r: 16
+    lora_alpha: 16
+    lr: 2.0e-5
+    target_modules: "query_value"
+
+# Evaluation uses the same base prompt and dataset/task coverage as the paper.
+eval_datasets:
+  - "brset"
+  - "mbrset"
+  - "papila"
+  - "rfmid"
+  - "rfmid_2"
+  - "idrid"
+  - "messidor_2"
+  - "refuge"
+  - "g1020"
+  - "jsiec1000"
+
+tasks: ["binary_dr", "referable_dr", "glaucoma"]
+dataset_tasks:
+  brset: ["binary_dr", "referable_dr", "glaucoma"]
+  mbrset: ["binary_dr", "referable_dr", "glaucoma"]
+  papila: ["glaucoma"]
+  rfmid: ["binary_dr", "referable_dr"]
+  rfmid_2: ["binary_dr", "referable_dr"]
+  idrid: ["binary_dr", "referable_dr"]
+  messidor_2: ["binary_dr", "referable_dr"]
+  refuge: ["glaucoma"]
+  g1020: ["glaucoma"]
+  jsiec1000: ["binary_dr", "referable_dr"]
+
+batch_size: 16
+max_new_tokens: 128
+split: "test"

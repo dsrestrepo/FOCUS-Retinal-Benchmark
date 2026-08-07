@@ -36,7 +36,7 @@ jobs/
   train/         offline SFT and GRPO jobs
 
 Split_Data/
-  benchmark split definitions loaded automatically by RetinaDataset
+  benchmark split definitions used by the dataset loader
 
 ext_repos/
   patched external model code used by selected foundation models
@@ -162,9 +162,9 @@ sbatch jobs/download/download_fundus_datasets.sh --force-preprocess
 sbatch jobs/download/download_fundus_datasets.sh --dry-run
 ```
 
-The dataset downloader writes benchmark-ready dataset folders under `$DATA_PATH`. 
+The dataset downloader writes benchmark-ready dataset folders under `$DATA_PATH`.
 
-Benchmark split definitions are included in the repository under `Split_Data/`; `retina_bench.core.data.RetinaDataset` loads those split files automatically when constructing train, validation, test, or all splits. Users do not need to create split files to run the experiments.
+Benchmark split definitions are included in the repository under `Split_Data/` and are used by `retina_bench.core.data.RetinaDataset` when constructing train, validation, test, or all splits. For BRSET and mBRSET, the downloader installs the corresponding split file into the prepared dataset directory; for the manifest-based datasets, the loader can read the shared split definitions directly. Users do not need to create split files to run the experiments.
 
 ## 4. Download Models For Offline Use
 
@@ -197,17 +197,31 @@ The Slurm jobs read YAML files dynamically. To change the benchmark grid, edit Y
 `config/mllm_config.yaml` controls MLLM evaluation and adapter training:
 
 - `models`: Hugging Face model ids.
-- `datasets`: datasets considered during baseline evaluation.
-- `tasks`: global task list.
-- `dataset_tasks`: allowed task subset per dataset.
-- `train_datasets`: datasets used for SFT/GRPO.
-- `train_tasks`: tasks used for SFT/GRPO.
-- `strategies`: prompt strategies for baseline/adapted evaluation.
-- `sft_strategies`: prompt strategies used for SFT training.
-- `grpo_strategies`: prompt strategies used for GRPO training.
-- `quantization`: quantization mode passed to MLLM scripts.
-- `use_unsloth`: switches training scripts to the Unsloth variants when true.
-- `eval_datasets_ft` and `eval_tasks_ft`: optional out-of-domain adapter evaluation grid.
+- `datasets`: datasets considered during baseline evaluation. Supported benchmark
+  names are `brset`, `mbrset`, `papila`, `rfmid`, `rfmid_2`, `idrid`,
+  `messidor_2`, `refuge`, `g1020`, and `jsiec1000`.
+- `tasks`: global task list. The harmonized binary tasks are `binary_dr`,
+  `referable_dr`, and `glaucoma`.
+- `dataset_tasks`: allowed task subset for each dataset.
+- `train_datasets`: datasets used for SFT/GRPO. Adapter training supports
+  `brset`, `mbrset`, or `both`; `both` pools the two training datasets into one
+  adapter.
+- `train_tasks`: tasks used for SFT/GRPO. Values are `binary_dr`,
+  `referable_dr`, `glaucoma`, or `all`; `all` trains one adapter across all
+  tasks available in the training dataset.
+- `strategies`: prompt strategies for baseline/adapted evaluation: `base`,
+  `role`, or `cot`.
+- `sft_strategies`: prompt strategies used for SFT training: `base`, `role`,
+  `cot`, or `all`. With `all`, base, role, and CoT formulations are included in
+  one adapter.
+- `grpo_strategies`: prompt strategies used for GRPO training: `base_grpo`,
+  `role_grpo`, `cot`, or `all`. With `all`, all three formulations are used.
+- `quantization`: model-loading precision passed to MLLM scripts: `4b`, `8b`,
+  or `16b`.
+- `use_unsloth`: `true` selects the Unsloth training entrypoints; `false`
+  selects the standard Transformers/TRL entrypoints.
+- `eval_datasets_ft` and `eval_tasks_ft`: optional adapter-evaluation grid.
+  Dataset names are the same as `datasets`; task names are the same as `tasks`.
 
 `config/vlms_config.yaml` controls CLIP/SigLIP/ophthalmic VLM evaluation:
 
@@ -242,6 +256,20 @@ sbatch jobs/eval/run_mllms_benchmark.sh
 ```
 
 Outputs are written under `$OUTPUT_DIR`, normally `results/evals`. The `.gitignore` excludes results because they are generated artifacts.
+
+### Alternative A100 inference jobs
+
+The inference experiments reported in the paper use the H100 jobs above. Three
+alternative A100 jobs are provided for environments with less capable GPU
+hardware. They execute the same inference grids, read the same YAML
+configurations, use the same evaluation parameters, and write to the same
+`$OUTPUT_DIR`; only the requested GPU partition and architecture module differ.
+
+```bash
+sbatch jobs/eval/run_cv_benchmark_a100.sh
+sbatch jobs/eval/run_vlms_benchmark_a100.sh
+sbatch jobs/eval/run_mllms_benchmark_a100.sh
+```
 
 ## 7. Train Adapters
 

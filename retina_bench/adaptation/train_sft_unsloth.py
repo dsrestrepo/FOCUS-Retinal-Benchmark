@@ -18,6 +18,23 @@ from retina_bench.core.data import RetinaDataset
 from retina_bench.mllms.evaluate import get_model_class
 import retina_bench.mllms.prompts as prompts
 
+SUPPORTED_TRAIN_TASKS = ["referable_dr", "binary_dr", "glaucoma"]
+
+def tasks_for_dataset(dataset_name, requested_task):
+    if requested_task != "all":
+        return [requested_task]
+
+    try:
+        import yaml
+        with open("config/mllm_config.yaml") as f:
+            cfg = yaml.safe_load(f) or {}
+        tasks = cfg.get("dataset_tasks", {}).get(dataset_name, cfg.get("tasks", SUPPORTED_TRAIN_TASKS))
+    except Exception as e:
+        print(f"Warning: Could not read dataset tasks from config ({e}); using default task list.")
+        tasks = SUPPORTED_TRAIN_TASKS
+
+    return [task for task in tasks if task in SUPPORTED_TRAIN_TASKS]
+
 def get_data_generator(dataset, dataset_name, tasks_list, strategy="base"):
     """Yields samples for SFT training using the specified prompt strategy."""
     
@@ -142,38 +159,35 @@ def main():
         except Exception as e:
            print(f"Skipping {d_name} due to error: {e}")
 
-    # Define tasks we are training on
-    if args.task == "all":
-        TASKS = ["referable_dr", "binary_dr", "glaucoma"]
-    else:
-        TASKS = [args.task]
-        
-    print(f"Training on tasks: {TASKS}")
+    task_map = {d_name: tasks_for_dataset(d_name, args.task) for _, d_name in ds_list}
+    print(f"Training task map: {task_map}")
 
     def gen():
         for d_set, d_name in ds_list:
-            yield from get_data_generator(d_set, d_name, TASKS, strategy=args.prompt_strategy)
+            yield from get_data_generator(d_set, d_name, task_map[d_name], strategy=args.prompt_strategy)
         
     train_dataset = Dataset.from_generator(gen)
     
     # 5. Data Collator for formatting
     def collate_fn(examples):
         texts = []
+        prompt_texts = []
         # images for Gemma3 processor must be list of lists of PIL images for batched inputs
         processed_images = [] 
         
         for ex in examples:
             # Create standard chat structure
+            user_message = {
+                "role": "user",
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": ex['text']}
+                ]
+            }
             messages = [
+                user_message,
                 {
-                    "role": "user",
-                    "content": [
-                        {"type": "image"},
-                        {"type": "text", "text": ex['text']}
-                    ]
-                },
-                {
-                    "role": "assistant", 
+                    "role": "assistant",
                     "content": [
                         {"type": "text", "text": ex['label']}
                     ]
@@ -187,6 +201,13 @@ def main():
                 tokenize=False
             )
             texts.append(text_prompt)
+
+            prompt_text = processor.apply_chat_template(
+                [user_message],
+                add_generation_prompt=True,
+                tokenize=False
+            )
+            prompt_texts.append(prompt_text)
             
             # For batch processing, images arg takes a list (batch) of list (images per seq)
             # ex['image'] is a single PIL image
@@ -202,9 +223,21 @@ def main():
             padding=True,
             return_tensors="pt", 
         )
+        prompt_inputs = processor(
+            text=prompt_texts,
+            images=processed_images,
+            padding=True,
+            return_tensors="pt",
+        )
         
         # Copy input_ids to labels
         labels = inputs["input_ids"].clone()
+        prompt_lengths = prompt_inputs["attention_mask"].sum(dim=1)
+
+        # Supervise only the assistant response. Without this mask the loss is
+        # dominated by reconstructing the long user prompt and metadata.
+        for row_idx, prompt_len in enumerate(prompt_lengths.tolist()):
+            labels[row_idx, :prompt_len] = -100
 
         # Gather standard image tokens to mask across different models
         image_token_ids = []
