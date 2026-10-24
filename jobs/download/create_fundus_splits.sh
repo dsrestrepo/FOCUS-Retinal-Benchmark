@@ -30,6 +30,7 @@ if [ -f .env ]; then
 fi
 set -u
 set +o allexport
+source jobs/common_paths.sh
 
 export PYTHONPATH="${PYTHONPATH:-}:."
 

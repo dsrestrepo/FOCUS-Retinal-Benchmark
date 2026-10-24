@@ -2,16 +2,30 @@
 
 ![FOCUS logo](logo/FOCUS-logo.png)
 
-FOCUS is an anonymous retinal foundation-model benchmark for evaluating computer vision models, vision-language models, and multimodal large language models on color fundus tasks. The benchmark covers zero-shot evaluation, linear probing, calibration, subgroup analysis, and LoRA adaptation with supervised fine-tuning (SFT) and GRPO.
+Official implementation of **FOCUS: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal LLMs**.
+
+**Accepted at NeurIPS 2026, Evaluations & Datasets Track.**
+
+David Restrepo, Chenwei Wu, Luis Filipe Nakayama, Miguel L. Martins, Stergios Christodoulidis, Maria Vakalopoulou, and Enzo Ferrante.
+
+[Paper (arXiv)](https://arxiv.org/abs/2609.33158) · [NeurIPS poster page](https://neurips.cc/virtual/2026/poster/139808) · [Interactive Arena](https://huggingface.co/spaces/dsrestrepo/FOCUS-Retinal-Benchmark)
+
+FOCUS is a retinal foundation-model benchmark for evaluating computer vision models, vision-language models, and multimodal large language models on color fundus tasks. The benchmark covers zero-shot evaluation, linear probing, calibration, subgroup analysis, and LoRA adaptation with supervised fine-tuning (SFT) and GRPO. The paper reports baseline evaluations and SFT adaptation; GRPO is an optional extension.
 
 ![FOCUS benchmark overview](logo/benchmark_overview.png)
 
-An interactive arena is available at:
+## Clone the Repository
 
-https://huggingface.co/spaces/focus-retina-benchmark/focus-retinal-benchmark-arena
+```bash
+git clone https://github.com/dsrestrepo/FOCUS-Retinal-Benchmark.git
+cd FOCUS-Retinal-Benchmark
+mkdir -p logs
+```
 
+Run the commands below from this directory. Patched external model source code is included under `ext_repos/`; dataset files and model weights are downloaded separately.
 
-## Repository Layout
+<details>
+<summary><strong>Repository layout</strong></summary>
 
 ```text
 retina_bench/
@@ -42,7 +56,10 @@ ext_repos/
   patched external model code used by selected foundation models
 ```
 
-## Pipeline
+</details>
+
+<details>
+<summary><strong>Workflow overview</strong></summary>
 
 1. Create the environment.
 2. Configure local paths and credentials.
@@ -55,39 +72,81 @@ ext_repos/
 
 The benchmark, training, and analysis jobs are configured for offline execution through the Hugging Face cache and local dataset/model directories.
 
-## 1. Environment
+</details>
 
-The benchmark can be installed from a fresh conda environment, from the exported environment file, or with the provided Slurm helper script.
+`sbatch` returns a job ID before the job finishes. Complete data/model downloads before submitting evaluation jobs, complete training before adapter evaluation, and complete evaluation before analysis. For the paper workflow, use the baseline jobs and SFT jobs below; GRPO jobs are optional.
 
-Option A: create a fresh Python 3.12 environment and install the benchmark dependencies:
+## Environment
+
+Run the setup commands from the repository root. The release environment targets
+Linux x86_64 with NVIDIA GPUs and Python 3.12. It uses `torch==2.10.0` and
+`torchvision==0.25.0`, the versions recorded in the experiment pip export.
+The PyPI Linux wheels include the matching CUDA 12.8 runtime dependencies.
+
+FlashAttention is installed after PyTorch and its build prerequisites. Building it
+requires a CUDA toolkit; use CUDA 12.8 for this environment.
+
+Option A: create a fresh environment and install the resolved benchmark dependencies:
 
 ```bash
-conda create -n llms python=3.12 -y
+conda create -n llms python=3.12.12 pip=25.2 -y
 conda activate llms
-
-python -m pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+python -m pip install -r reproducibility/requirements.lock.txt
+python -m pip install --no-deps -e ./ext_repos/FLAIR
 MAX_JOBS=4 python -m pip install flash-attn==2.8.3 --no-build-isolation
-python -m pip install -r requirements.txt
+python -m pip check
 ```
 
-Option B: recreate the exported conda environment directly:
+<details>
+<summary><strong>Alternative installation methods and environment details</strong></summary>
+
+Option B: create the same environment from the curated Conda file:
 
 ```bash
 conda env create -f reproducibility/environment.lock.yml
 conda activate llms
+python -m pip install --no-deps -e ./ext_repos/FLAIR
+MAX_JOBS=4 python -m pip install flash-attn==2.8.3 --no-build-isolation
+python -m pip check
 ```
 
 Option C: use the provided Slurm installation script:
 
 ```bash
+mkdir -p logs
 sbatch install_packages.sh
 ```
 
-The Slurm scripts assume a module-based HPC environment and may need local edits to the `#SBATCH` headers or module names. `install_packages.sh` accepts environment overrides such as `CONDA_ENV_NAME`, `PYTHON_VERSION`, `MINIFORGE_MODULE`, `CUDA_MODULE`, `CUDNN_MODULE`, `NCCL_MODULE`, and `SKIP_MODULES=1`.
+The Slurm scripts assume a module-based HPC environment. Adjust the `#SBATCH`
+headers and module names for your cluster. `install_packages.sh` accepts
+`CONDA_ENV_NAME`, `PYTHON_VERSION`, `MINIFORGE_MODULE`, `GCC_MODULE`, `CUDA_MODULE`,
+`MAX_JOBS`, and `SKIP_MODULES=1`. Its default CUDA module is `cuda/12.8.1`;
+PyTorch supplies its own matching cuDNN and NCCL runtime packages.
 
-`requirements.txt` intentionally excludes `torch`, `torchvision`, `torchaudio`, and the `nvidia-*-cu12` runtime wheels because PyTorch should be installed first with the CUDA 12.4 wheel command above.
+`requirements.txt` lists the benchmark's direct dependencies.
+`reproducibility/requirements.lock.txt` pins their resolved dependencies for
+Linux/Python 3.12, and the Conda file contains the same package set. Accelerate
+and OpenAI CLIP use the exact Git commits from the recorded pip export, because
+their exported version strings are not installable PyPI releases.
 
-## 2. Paths And Credentials
+The default environment covers VM/VLM/MLLM evaluation, data preparation, analysis,
+and standard Transformers/TRL SFT and GRPO. Unsloth was not used in the paper
+experiments and is excluded; keep `use_unsloth: false` for this environment.
+The optional Unsloth entrypoints and external API wrappers require separate
+additional dependencies. TorchAudio, xFormers, and unrelated experimental
+packages are also excluded from the release install lists.
+
+The original pip freeze, Conda package inventory, and environment report are kept
+locally and excluded from Git. They describe a broader environment, including
+unused packages and recorded dependency conflicts. The public
+`reproducibility/python-runtime.json` records the original Python/platform
+information. New exports from `jobs/setup/export_reproducibility.sh` default to
+the ignored `reproducibility/snapshots/<UTC timestamp>/` directory so they do not
+overwrite the curated release files.
+
+</details>
+
+## Paths And Credentials
 
 Create the local path file:
 
@@ -107,7 +166,17 @@ HF_HUB_OFFLINE=1
 TRANSFORMERS_OFFLINE=1
 ```
 
+The `$WORK` example assumes your HPC environment defines that variable. Otherwise, set `HF_HOME` to an absolute cache directory.
+
 `config/paths.env` is intentionally ignored by git because it contains machine-specific paths.
+
+After loading that file, jobs derive the Hugging Face Hub cache as `$HF_HOME/hub`.
+Adapter evaluation and analysis directories default to siblings of `$OUTPUT_DIR`.
+For example, `OUTPUT_DIR="/scratch/focus/evals"` uses `/scratch/focus/evals_sft`,
+`/scratch/focus/evals_grpo`, `/scratch/focus/analysis`, and
+`/scratch/focus/analysis_ft`. Optional directory overrides are listed in
+`config/paths.env.template`. The default `OUTPUT_DIR="results/evals"` preserves
+the existing `results/` layout. Path resolution does not move existing files.
 
 If you use gated Hugging Face models or download datasets from credentialed sources, create the local credentials file:
 
@@ -132,9 +201,9 @@ Credential use:
 
 Never commit `.env`, `config/paths.env`, Kaggle credentials, service-account JSON files, raw datasets, or model weights.
 
-## 3. Download and Prepare Benchmark Data
+## Download and Prepare Benchmark Data
 
-Set `DATA_PATH` to the directory where the prepared dataset folders should live:
+Set `DATA_PATH` in `config/paths.env` to the directory where the prepared dataset folders should live:
 
 ```bash
 DATA_PATH="/path/to/prepared-fundus-datasets"
@@ -152,6 +221,9 @@ Run downloads on a node with internet access:
 sbatch jobs/download/download_fundus_datasets.sh
 ```
 
+<details>
+<summary><strong>Download options and benchmark split files</strong></summary>
+
 Common variants:
 
 ```bash
@@ -166,7 +238,9 @@ The dataset downloader writes benchmark-ready dataset folders under `$DATA_PATH`
 
 Benchmark split definitions are included in the repository under `Split_Data/` and are used by `retina_bench.core.data.RetinaDataset` when constructing train, validation, test, or all splits. For BRSET and mBRSET, the downloader installs the corresponding split file into the prepared dataset directory; for the manifest-based datasets, the loader can read the shared split definitions directly. Users do not need to create split files to run the experiments.
 
-## 4. Download Models For Offline Use
+</details>
+
+## Download Models For Offline Use
 
 The compute jobs run with:
 
@@ -190,7 +264,8 @@ The MLLM downloader reads `config/mllm_config.yaml`. The VLM and CV downloaders 
 
 Important: `ext_repos/` contains patched model code used by the benchmark and should be versioned as source. The large weights inside `ext_repos/`, such as `.pt` and `.pth` files, are ignored and should be downloaded locally.
 
-## 5. YAML Configuration Files
+<details>
+<summary><strong>Advanced YAML configuration</strong></summary>
 
 The Slurm jobs read YAML files dynamically. To change the benchmark grid, edit YAML rather than editing loops in shell scripts.
 
@@ -245,7 +320,9 @@ The Slurm jobs read YAML files dynamically. To change the benchmark grid, edit Y
 
 `config/fundus_datasets.yaml` records the dataset registry and original-source download information used by the benchmark.
 
-## 6. Run Baseline Benchmarks
+</details>
+
+## Run Baseline Benchmarks
 
 After benchmark data and models are available locally, submit the offline evaluation jobs:
 
@@ -257,7 +334,8 @@ sbatch jobs/eval/run_mllms_benchmark.sh
 
 Outputs are written under `$OUTPUT_DIR`, normally `results/evals`. The `.gitignore` excludes results because they are generated artifacts.
 
-### Alternative A100 inference jobs
+<details>
+<summary><strong>Alternative A100 inference jobs</strong></summary>
 
 The inference experiments reported in the paper use the H100 jobs above. Three
 alternative A100 jobs are provided for environments with less capable GPU
@@ -271,17 +349,22 @@ sbatch jobs/eval/run_vlms_benchmark_a100.sh
 sbatch jobs/eval/run_mllms_benchmark_a100.sh
 ```
 
-## 7. Train Adapters
+</details>
+
+<details>
+<summary><strong>Adapter training and evaluation (SFT / GRPO)</strong></summary>
+
+### Train adapters
 
 SFT and GRPO are driven by `config/mllm_config.yaml` using `models`, `train_datasets`, `train_tasks`, `sft_strategies`, `grpo_strategies`, `quantization`, and `use_unsloth`.
 
-Run SFT:
+Run SFT (used in the paper):
 
 ```bash
 sbatch jobs/train/run_sft.sh
 ```
 
-Run GRPO:
+Run GRPO (optional):
 
 ```bash
 sbatch jobs/train/run_grpo.sh
@@ -296,7 +379,7 @@ results/checkpoints/grpo_<model>_<dataset>_<task>_<strategy>
 
 These checkpoints are generated artifacts and should not be committed.
 
-## 8. Evaluate Adapters
+### Evaluate adapters
 
 Evaluate trained SFT adapters:
 
@@ -312,7 +395,9 @@ sbatch jobs/eval/evaluate_grpo_adapters.sh
 
 The adapter evaluation jobs skip missing checkpoint directories, so partial training grids are supported.
 
-## 9. Analyze Results
+</details>
+
+## Analyze Results
 
 Aggregate baseline results:
 
@@ -320,15 +405,33 @@ Aggregate baseline results:
 sbatch jobs/eval/run_analysis.sh
 ```
 
-Aggregate fine-tuned adapter results:
+<details>
+<summary><strong>Analyze fine-tuned adapters</strong></summary>
+
+Aggregate fine-tuned adapter results (SFT and any available GRPO outputs):
 
 ```bash
 sbatch jobs/eval/run_analysis_ft.sh
 ```
 
-Analysis outputs are written to `results/analysis` and `results/analysis_ft`. Manuscript table/figure outputs are generated artifacts and are ignored by default.
+For an SFT-only analysis, use:
 
-## Direct Script Entry Points
+```bash
+sbatch jobs/eval/run_analysis_sft.sh
+```
+
+Analysis outputs are written to `$ANALYSIS_DIR` and `$FT_ANALYSIS_DIR`, defaulting to `results/analysis` and `results/analysis_ft`. Manuscript table/figure outputs are generated artifacts and are ignored by default.
+
+</details>
+
+<details>
+<summary><strong>Direct Python entrypoints</strong></summary>
+
+Set `PYTHONPATH` from the repository root when running scripts directly:
+
+```bash
+export PYTHONPATH="${PYTHONPATH:-}:."
+```
 
 Most users should submit Slurm jobs. For debugging or local use, the underlying Python entry points are:
 
@@ -346,13 +449,10 @@ python retina_bench/adaptation/train_sft.py --help
 python retina_bench/adaptation/train_grpo.py --help
 ```
 
-Set `PYTHONPATH` from the repository root when running scripts directly:
+</details>
 
-```bash
-export PYTHONPATH="${PYTHONPATH:-}:."
-```
-
-## Programmatic Use
+<details>
+<summary><strong>Programmatic API and embedding examples</strong></summary>
 
 The benchmark modules can also be used directly when you want to build custom experiments, reuse the curated fundus loaders, or extract model embeddings outside the Slurm evaluation grid.
 
@@ -483,7 +583,7 @@ output = model.generate(
 print(output["text"])
 ```
 
-For calibrated binary classification, you can request first-token scores for task labels when the underlying wrapper supports returning generation scores:
+To inspect first-token answer probabilities, request scores for task labels when the underlying wrapper supports returning generation scores:
 
 ```python
 output = model.generate(
@@ -498,9 +598,12 @@ output = model.generate(
 print(output.get("token_probs", {}))
 ```
 
-All model examples assume the required checkpoints are already present in the Hugging Face cache or under `ext_repos/`, because the benchmark is designed to run offline after the download stage.
+All model examples assume the required checkpoints are already present in the Hugging Face cache or under `ext_repos/`, because the benchmark is designed to run offline after the download stage. Use the evaluation jobs above to reproduce benchmark scores; the programmatic examples illustrate the model interfaces.
 
-## Notes
+</details>
+
+<details>
+<summary><strong>Dataset access, model links, and additional notes</strong></summary>
 
 - Dataset access and model terms must be accepted upstream when using original sources or gated checkpoints. Useful dataset source links:
 
@@ -539,3 +642,28 @@ All model examples assume the required checkpoints are already present in the Hu
 
 - Some model checkpoints are gated and require accepting upstream terms before `download_*` jobs can cache them.
 - The benchmark expects benchmark-ready dataset folders under `$DATA_PATH` and cached models under `$HF_HOME`; evaluation and training jobs intentionally run offline.
+
+</details>
+
+## Citation
+
+If you use FOCUS, please cite the paper:
+
+<details>
+<summary><strong>BibTeX citation</strong></summary>
+
+```bibtex
+@misc{restrepo2026focus,
+  title         = {{FOCUS}: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal {LLMs}},
+  author        = {Restrepo, David and Wu, Chenwei and Nakayama, Luis Filipe and Martins, Miguel L. and Christodoulidis, Stergios and Vakalopoulou, Maria and Ferrante, Enzo},
+  year          = {2026},
+  eprint        = {2609.33158},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  doi           = {10.48550/arXiv.2609.33158},
+  url           = {https://arxiv.org/abs/2609.33158},
+  note          = {Accepted at NeurIPS 2026, Evaluations \& Datasets Track}
+}
+```
+
+</details>

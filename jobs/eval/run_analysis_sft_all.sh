@@ -18,6 +18,7 @@ conda activate llms
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 export PYTHONPATH=$PYTHONPATH:.
 
@@ -26,21 +27,21 @@ echo "Starting all-task SFT analysis job..."
 MODELS=$(python -c 'import yaml; print(" ".join(yaml.safe_load(open("config/mllm_config.yaml"))["models"]))')
 
 python scripts/analyze_ft_benchmark.py \
-    --sft_dir results/evals_sft_all \
-    --grpo_dir results/no_grpo \
+    --sft_dir "${SFT_ALL_EVAL_DIR}" \
+    --grpo_dir "${RESULTS_ROOT}/no_grpo" \
     --data_dir "$DATA_PATH" \
     --fundus_config config/fundus_datasets.yaml \
-    --baseline_metrics results/analysis/aggregated_metrics.csv \
-    --output_dir results/analysis_sft_all \
+    --baseline_metrics "${ANALYSIS_DIR}/aggregated_metrics.csv" \
+    --output_dir "${SFT_ALL_ANALYSIS_DIR}" \
     --models $MODELS
 
 echo "Estimating paired all-task SFT-vs-base uncertainty..."
 
-if [ -f results/analysis_sft_all/aggregated_metrics.csv ]; then
+if [ -f "${SFT_ALL_ANALYSIS_DIR}/aggregated_metrics.csv" ]; then
     python scripts/analyze_ft_significance.py \
-        --ft_metrics results/analysis_sft_all/aggregated_metrics.csv \
-        --base_dir results/evals \
-        --output_dir results/analysis_sft_all/significance \
+        --ft_metrics "${SFT_ALL_ANALYSIS_DIR}/aggregated_metrics.csv" \
+        --base_dir "${OUTPUT_DIR}" \
+        --output_dir "${SFT_ALL_ANALYSIS_DIR}/significance" \
         --paper_table_dir paper/tables/sft_all \
         --metrics auc accuracy ece \
         --n_boot "${FT_SIGNIFICANCE_BOOTSTRAPS:-1000}"

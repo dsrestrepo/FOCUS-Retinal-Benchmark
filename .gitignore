@@ -91,5 +91,9 @@ paper/
 
 # Dependency snapshots generated during local experiments
 requirements_backup.txt
+reproducibility/environment-report.txt
+reproducibility/conda-explicit-spec.txt
+reproducibility/requirements.freeze.txt
+reproducibility/snapshots/
 
 multilingual_eval/

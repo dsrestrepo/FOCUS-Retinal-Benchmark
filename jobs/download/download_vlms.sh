@@ -20,16 +20,9 @@ module load gcc/11.4.1
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-# Install required dependencies for VLMs (including CLIP for EyeCLIP)
-pip install gdown timm ftfy regex git+https://github.com/openai/CLIP.git
+# Install benchmark dependencies, CLIP, and vendored FLAIR during environment
+# setup (README.md / install_packages.sh). Downloading must not change the pins.
 
-# Install FLAIR
-if [ -d "ext_repos/FLAIR" ]; then
-    pip install -e ext_repos/FLAIR
-fi
-
-export HF_HOME="$WORK/.cache/huggingface"
-export HF_HUB_CACHE="$HF_HOME/hub"
 
 set -o allexport
 source config/paths.env
@@ -37,6 +30,7 @@ if [ -f .env ]; then
     source .env
 fi
 set +o allexport
+source jobs/common_paths.sh
 
 export HF_HUB_OFFLINE=0
 

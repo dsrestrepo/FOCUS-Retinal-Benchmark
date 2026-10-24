@@ -26,7 +26,6 @@ eval "$(conda shell.bash hook)"
 conda activate llms
 
 # Environment Configuration
-export HF_HOME="$WORK/.cache/huggingface"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 # Ensure correct import paths
@@ -36,6 +35,7 @@ export PYTHONPATH=$PYTHONPATH:.
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 echo "Starting GRPO Training Job..."
 

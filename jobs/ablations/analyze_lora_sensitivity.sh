@@ -29,12 +29,13 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${LORA_ABLATION_CONFIG:-config/ablations/lora_sensitivity.yaml}
-EVAL_ROOT=${LORA_ABLATION_EVAL_DIR:-"${OUTPUT_DIR%/*}/evals_lora_sensitivity"}
-REFERENCE_ROOT=${LORA_REFERENCE_EVAL_DIR:-"${OUTPUT_DIR%/*}/evals_sft_all"}
-BASELINE_ROOT=${LORA_BASELINE_EVAL_DIR:-"${OUTPUT_DIR%/*}/evals"}
-ANALYSIS_ROOT=${LORA_ABLATION_ANALYSIS_DIR:-"${OUTPUT_DIR%/*}/analysis_lora_sensitivity"}
+EVAL_ROOT=${LORA_ABLATION_EVAL_DIR:-"${RESULTS_ROOT}/evals_lora_sensitivity"}
+REFERENCE_ROOT=${LORA_REFERENCE_EVAL_DIR:-"$SFT_ALL_EVAL_DIR"}
+BASELINE_ROOT=${LORA_BASELINE_EVAL_DIR:-"$OUTPUT_DIR"}
+ANALYSIS_ROOT=${LORA_ABLATION_ANALYSIS_DIR:-"${RESULTS_ROOT}/analysis_lora_sensitivity"}
 
 python scripts/ablations/analyze_lora_sensitivity.py \
     --config "$CONFIG" \

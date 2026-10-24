@@ -33,7 +33,6 @@ module load nccl/2.21.5-1-cuda
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export PYTHONPATH="${PYTHONPATH:-}:."
@@ -41,6 +40,7 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${LORA_PAPER_ABLATION_CONFIG:-config/ablations/lora_sensitivity_paper_aligned.yaml}
 CHECKPOINT_ROOT=${LORA_PAPER_ABLATION_CHECKPOINT_DIR:-"${CHECKPOINTS_DIR%/*}/checkpoints_lora_sensitivity_paper_aligned"}

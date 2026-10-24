@@ -27,7 +27,6 @@ eval "$(conda shell.bash hook)"
 conda activate llms
 
 # Environment Configuration
-export HF_HOME="$WORK/.cache/huggingface"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
@@ -38,6 +37,7 @@ export PYTHONPATH=$PYTHONPATH:.
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 echo "Starting Evaluation Job on H100 for Adapters..."
 
@@ -49,7 +49,7 @@ TRAIN_STRATEGIES=$(python -c 'import yaml; print(" ".join(yaml.safe_load(open("c
 EVAL_STRATEGIES=$(python -c 'import yaml; print(" ".join(yaml.safe_load(open("config/mllm_config.yaml"))["strategies"]))')
 QUANTIZATION=$(python -c 'import yaml; print(yaml.safe_load(open("config/mllm_config.yaml"))["quantization"])')
 USE_UNSLOTH=$(python -c 'import yaml; print(yaml.safe_load(open("config/mllm_config.yaml")).get("use_unsloth", False))')
-EVAL_ROOT="${OUTPUT_DIR%/*}/evals_grpo"
+EVAL_ROOT="$GRPO_EVAL_DIR"
 
 eval_datasets_for_task() {
     python -c 'import sys, yaml

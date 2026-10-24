@@ -18,6 +18,7 @@ conda activate llms
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 export PYTHONPATH=$PYTHONPATH:.
 
@@ -26,20 +27,20 @@ echo "Starting fine-tuned model analysis job..."
 MODELS=$(python -c 'import yaml; print(" ".join(yaml.safe_load(open("config/mllm_config.yaml"))["models"]))')
 
 python scripts/analyze_ft_benchmark.py \
-    --sft_dir results/evals_sft \
-    --grpo_dir results/evals_grpo \
+    --sft_dir "${SFT_EVAL_DIR}" \
+    --grpo_dir "${GRPO_EVAL_DIR}" \
     --data_dir "$DATA_PATH" \
     --fundus_config config/fundus_datasets.yaml \
-    --baseline_metrics results/analysis/aggregated_metrics.csv \
-    --output_dir results/analysis_ft \
+    --baseline_metrics "${ANALYSIS_DIR}/aggregated_metrics.csv" \
+    --output_dir "${FT_ANALYSIS_DIR}" \
     --models $MODELS
 
 echo "Estimating paired FT-vs-base uncertainty..."
 
 python scripts/analyze_ft_significance.py \
-    --ft_metrics results/analysis_ft/aggregated_metrics.csv \
-    --base_dir results/evals \
-    --output_dir results/analysis_ft/significance \
+    --ft_metrics "${FT_ANALYSIS_DIR}/aggregated_metrics.csv" \
+    --base_dir "${OUTPUT_DIR}" \
+    --output_dir "${FT_ANALYSIS_DIR}/significance" \
     --paper_table_dir paper/tables \
     --metrics auc accuracy ece \
     --n_boot "${FT_SIGNIFICANCE_BOOTSTRAPS:-1000}"

@@ -14,16 +14,15 @@ cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 mkdir -p logs
 
 CONDA_ENV_NAME="${CONDA_ENV_NAME:-llms}"
-PYTHON_VERSION="${PYTHON_VERSION:-3.12}"
-MAX_JOBS="${MAX_JOBS:-4}"
+PYTHON_VERSION="${PYTHON_VERSION:-3.12.12}"
+export MAX_JOBS="${MAX_JOBS:-4}"
 
 if [[ "${SKIP_MODULES:-0}" != "1" ]] && type module >/dev/null 2>&1; then
     module purge
     module load "${MINIFORGE_MODULE:-miniforge/24.9.0}"
     module load "${GCC_MODULE:-gcc/11.4.1}"
-    module load "${CUDA_MODULE:-cuda/12.4.1}"
-    module load "${CUDNN_MODULE:-cudnn/9.2.0.82-cuda}"
-    module load "${NCCL_MODULE:-nccl/2.21.5-1-cuda}"
+    module load "${CUDA_MODULE:-cuda/12.8.1}"
+    # PyTorch wheels supply their matching cuDNN and NCCL runtime libraries.
 fi
 
 eval "$(conda shell.bash hook)"
@@ -41,18 +40,14 @@ echo "Conda env: ${CONDA_DEFAULT_ENV:-unknown}"
 python --version
 python -m pip --version
 
-echo "Installing PyTorch CUDA 12.4 stack used in the benchmark experiments..."
-python -m pip install \
-    torch==2.6.0 \
-    torchvision==0.21.0 \
-    torchaudio==2.6.0 \
-    --index-url https://download.pytorch.org/whl/cu124
+echo "Installing the recorded Torch 2.10 / TorchVision 0.25 stack and benchmark dependencies..."
+python -m pip install -r reproducibility/requirements.lock.txt
 
-echo "Installing flash-attn after PyTorch is available..."
+echo "Installing vendored FLAIR without changing the resolved dependency versions..."
+python -m pip install --no-deps -e ./ext_repos/FLAIR
+
+echo "Installing flash-attn after PyTorch and build prerequisites are available..."
 python -m pip install flash-attn==2.8.3 --no-build-isolation
-
-echo "Installing remaining Python dependencies..."
-python -m pip install -r requirements.txt
 
 echo "Installed GPU stack:"
 python - <<'PY'
@@ -62,14 +57,11 @@ import torch
 print(f"torch={torch.__version__}")
 print(f"torch.version.cuda={torch.version.cuda}")
 print(f"cuda_available={torch.cuda.is_available()}")
-for name in ("torchvision", "torchaudio", "flash_attn", "xformers", "triton"):
-    try:
-        mod = importlib.import_module(name)
-        print(f"{name}={getattr(mod, '__version__', 'unknown')}")
-    except Exception as exc:
-        print(f"{name}=IMPORT_ERROR: {exc}")
+for name in ("torchvision", "flash_attn", "triton"):
+    mod = importlib.import_module(name)
+    print(f"{name}={getattr(mod, '__version__', 'unknown')}")
 PY
 
-python -m pip check || true
+python -m pip check
 
 echo "Installation complete."

@@ -39,15 +39,15 @@ if [ -f .env ]; then
     source .env
 fi
 set +o allexport
+source jobs/common_paths.sh
 
-export HF_HOME="${HF_HOME:-$WORK/.cache/huggingface}"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export HF_DATASETS_OFFLINE=1
 export PYTHONPATH="${PYTHONPATH:-}:."
 
 CONFIG=${LINEAR_PROBE_BOOTSTRAP_CONFIG:-config/ablations/linear_probe_bootstrap.yaml}
-BOOTSTRAP_ROOT=${LINEAR_PROBE_BOOTSTRAP_DIR:-"${OUTPUT_DIR%/*}/ablations/linear_probe_bootstrap_random_init"}
+BOOTSTRAP_ROOT=${LINEAR_PROBE_BOOTSTRAP_DIR:-"${RESULTS_ROOT}/ablations/linear_probe_bootstrap_random_init"}
 GRID_INDEX=${SLURM_ARRAY_TASK_ID:?Submit this script as a Slurm array.}
 
 EXPECTED_GRID_SIZE=$(python -c 'import sys,yaml; c=yaml.safe_load(open(sys.argv[1])); print(len(c["models"]))' "$CONFIG")

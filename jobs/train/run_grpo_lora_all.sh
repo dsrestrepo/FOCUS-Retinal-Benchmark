@@ -23,7 +23,6 @@ module load nccl/2.21.5-1-cuda
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-export HF_HOME="$WORK/.cache/huggingface"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export PYTHONPATH=$PYTHONPATH:.
@@ -31,6 +30,7 @@ export PYTHONPATH=$PYTHONPATH:.
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CHECKPOINT_ROOT="results/checkpoints_lora_all"
 TRAIN_TASK="all"

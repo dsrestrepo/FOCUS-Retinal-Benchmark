@@ -29,11 +29,12 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${VLM_PROMPT_ABLATION_CONFIG:-config/ablations/vlm_zero_shot_prompt_sensitivity.yaml}
 BASELINE_ROOT=${VLM_PROMPT_BASELINE_DIR:-"$OUTPUT_DIR"}
-ABLATION_ROOT=${VLM_PROMPT_ABLATION_DIR:-"${OUTPUT_DIR%/*}/ablations/vlm_zero_shot_prompt_sensitivity"}
-ANALYSIS_ROOT=${VLM_PROMPT_ANALYSIS_DIR:-"${OUTPUT_DIR%/*}/analysis_vlm_zero_shot_prompt_sensitivity"}
+ABLATION_ROOT=${VLM_PROMPT_ABLATION_DIR:-"${RESULTS_ROOT}/ablations/vlm_zero_shot_prompt_sensitivity"}
+ANALYSIS_ROOT=${VLM_PROMPT_ANALYSIS_DIR:-"${RESULTS_ROOT}/analysis_vlm_zero_shot_prompt_sensitivity"}
 
 python scripts/ablations/analyze_vlm_zero_shot_prompt_sensitivity.py \
     --config "$CONFIG" \

@@ -29,10 +29,11 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${ABLATION_CONFIG:-config/ablations/mllm_prompt_parsing.yaml}
-ABLATION_ROOT=${MLLM_PROMPT_ABLATION_DIR:-"${OUTPUT_DIR%/*}/ablations/mllm_prompt_sensitivity"}
-ANALYSIS_ROOT=${MLLM_PROMPT_ANALYSIS_DIR:-"${OUTPUT_DIR%/*}/analysis_prompt_parsing_sensitivity"}
+ABLATION_ROOT=${MLLM_PROMPT_ABLATION_DIR:-"${RESULTS_ROOT}/ablations/mllm_prompt_sensitivity"}
+ANALYSIS_ROOT=${MLLM_PROMPT_ANALYSIS_DIR:-"${RESULTS_ROOT}/analysis_prompt_parsing_sensitivity"}
 
 python scripts/ablations/analyze_mllm_parsing_sensitivity.py \
     --config "$CONFIG" \

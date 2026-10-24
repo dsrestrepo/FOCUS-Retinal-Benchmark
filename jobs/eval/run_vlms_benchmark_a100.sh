@@ -33,6 +33,7 @@ if [ -f .env ]; then
     source .env
 fi
 set +o allexport
+source jobs/common_paths.sh
 
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1

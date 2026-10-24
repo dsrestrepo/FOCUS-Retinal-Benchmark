@@ -25,8 +25,6 @@ eval "$(conda shell.bash hook)"
 conda activate llms
 
 # Use $WORK for model cache to avoid quota issues in $HOME
-export HF_HOME="$WORK/.cache/huggingface"
-export HF_HUB_CACHE="$HF_HOME/hub"
 
 # Authentication
 # Ensure HF_TOKEN is loaded from .env config
@@ -36,6 +34,7 @@ if [ -f .env ]; then
     source .env
 fi
 set +o allexport
+source jobs/common_paths.sh
 
 # IMPORTANT: Ensure offline mode is DISABLED for downloading
 export HF_HUB_OFFLINE=0

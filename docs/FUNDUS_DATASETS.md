@@ -15,13 +15,13 @@ This benchmark is scoped to color fundus photography. The primary inclusion rule
 | PAPILA | Spain | Glaucoma classification, optic disc/cup segmentation | Age, sex | Figshare DOI | Strongest non-Brazilian open fundus dataset with demographics. |
 | RFMiD | India | Multi-disease classification | Not public | Kaggle mirror or RIADD/Grand Challenge | Broad pathology coverage. |
 | RFMiD 2.0 | India | Multi-disease classification | Not public | Zenodo | Auxiliary RFMiD release. |
-| IDRiD | India | DR/DME grading and lesion segmentation | Not public | IEEE DataPort open-access page | Use official source for audit; script leaves this manual. |
+| IDRiD | India | DR/DME grading and lesion segmentation | Not public | Zenodo mirror / IEEE DataPort original source | Downloader uses the configured Zenodo mirror of the original ZIP files. |
 | Messidor-2 | France | DR/DME grading | Not public | Consortium/form or Kaggle mirror | Good DR benchmark; keep license/source caveat visible. |
 | REFUGE | China / challenge | Glaucoma classification, disc/cup segmentation, fovea localization | Not public | G1020 Kaggle mirror / Grand Challenge | Prepared as a standalone glaucoma dataset from the bundled REFUGE copy. |
 | G1020 | Germany / clinical | Glaucoma classification and disc/cup segmentation | Not public | Kaggle mirror | Use the G1020 subset from combined mirrors. |
 | JSIEC1000 | China | 39-class fundus disease classification | Not public | Kaggle | Good disease breadth slice. |
-| PALM | China | Pathologic myopia and lesion segmentation | Not public | Grand Challenge registration | Include if myopia is in scope. |
 
+PALM is an optional dataset in the downloader and is not part of the ten-dataset benchmark reported in the paper.
 
 ## Excluded datasets
 
@@ -67,9 +67,7 @@ For PhysioNet downloads, put credentials in `.env`:
 
 ```bash
 PHYSIONET_USERNAME=your_physionet_username
-PHYSION_PASSWORD=...
+PHYSIONET_PASSWORD=...
 ```
 
-Kaggle mirrors require the Kaggle CLI credentials file, usually `~/.kaggle/kaggle.json`. Grand Challenge and some official sources require web-form or account acceptance; for those, the script writes a `MANUAL_DOWNLOAD.md` note in the expected destination directory.
-
-Some sources require credentials or web-form acceptance. The script creates a `MANUAL_DOWNLOAD.md` file inside each such dataset directory with the exact source URL and expected location.
+Kaggle mirrors require the Kaggle CLI credentials file, usually `~/.kaggle/kaggle.json`. Grand Challenge and some official sources require web-form or account acceptance; for those, the script writes a `MANUAL_DOWNLOAD.md` note with the source URL and expected destination directory.

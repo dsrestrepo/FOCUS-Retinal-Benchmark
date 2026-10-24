@@ -33,7 +33,6 @@ module load nccl/2.21.5-1-cuda
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-export HF_HOME="$WORK/.cache/huggingface"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export PYTHONPATH="${PYTHONPATH:-}:."
@@ -41,10 +40,11 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${LORA_ABLATION_CONFIG:-config/ablations/lora_sensitivity.yaml}
 CHECKPOINT_ROOT=${LORA_ABLATION_CHECKPOINT_DIR:-"${CHECKPOINTS_DIR%/*}/checkpoints_lora_sensitivity"}
-EVAL_ROOT=${LORA_ABLATION_EVAL_DIR:-"${OUTPUT_DIR%/*}/evals_lora_sensitivity"}
+EVAL_ROOT=${LORA_ABLATION_EVAL_DIR:-"${RESULTS_ROOT}/evals_lora_sensitivity"}
 GRID_INDEX=${SLURM_ARRAY_TASK_ID:?Submit this script as a Slurm array.}
 
 GRID_LINE=$(python -c 'import sys,yaml

@@ -29,11 +29,12 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${LINEAR_PROBE_SUBSET_CONFIG:-config/ablations/linear_probe_bootstrap_completed_subset.yaml}
-BOOTSTRAP_ROOT=${LINEAR_PROBE_BOOTSTRAP_DIR:-"${OUTPUT_DIR%/*}/ablations/linear_probe_bootstrap_random_init"}
-ANALYSIS_ROOT=${LINEAR_PROBE_SUBSET_ANALYSIS_DIR:-"${OUTPUT_DIR%/*}/analysis_linear_probe_bootstrap_random_init_subset"}
-BASELINE_METRICS=${LINEAR_PROBE_BASELINE_METRICS:-"${OUTPUT_DIR%/*}/analysis/aggregated_metrics_all.csv"}
+BOOTSTRAP_ROOT=${LINEAR_PROBE_BOOTSTRAP_DIR:-"${RESULTS_ROOT}/ablations/linear_probe_bootstrap_random_init"}
+ANALYSIS_ROOT=${LINEAR_PROBE_SUBSET_ANALYSIS_DIR:-"${RESULTS_ROOT}/analysis_linear_probe_bootstrap_random_init_subset"}
+BASELINE_METRICS=${LINEAR_PROBE_BASELINE_METRICS:-"$ANALYSIS_DIR/aggregated_metrics_all.csv"}
 
 python scripts/ablations/analyze_linear_probe_bootstrap.py \
     --config "$CONFIG" \

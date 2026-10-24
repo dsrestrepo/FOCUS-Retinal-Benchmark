@@ -29,12 +29,13 @@ export PYTHONPATH="${PYTHONPATH:-}:."
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${LORA_PAPER_ABLATION_CONFIG:-config/ablations/lora_sensitivity_paper_aligned.yaml}
-EVAL_ROOT=${LORA_PAPER_ABLATION_EVAL_DIR:-"${OUTPUT_DIR%/*}/evals_lora_sensitivity_paper_aligned"}
-REFERENCE_ROOT=${LORA_PAPER_REFERENCE_EVAL_DIR:-"${OUTPUT_DIR%/*}/evals_sft"}
+EVAL_ROOT=${LORA_PAPER_ABLATION_EVAL_DIR:-"${RESULTS_ROOT}/evals_lora_sensitivity_paper_aligned"}
+REFERENCE_ROOT=${LORA_PAPER_REFERENCE_EVAL_DIR:-"$SFT_EVAL_DIR"}
 BASELINE_ROOT=${LORA_PAPER_BASELINE_DIR:-"$OUTPUT_DIR"}
-ANALYSIS_ROOT=${LORA_PAPER_ABLATION_ANALYSIS_DIR:-"${OUTPUT_DIR%/*}/analysis_lora_sensitivity_paper_aligned"}
+ANALYSIS_ROOT=${LORA_PAPER_ABLATION_ANALYSIS_DIR:-"${RESULTS_ROOT}/analysis_lora_sensitivity_paper_aligned"}
 
 python scripts/ablations/analyze_lora_sensitivity_paper_aligned.py \
     --config "$CONFIG" \

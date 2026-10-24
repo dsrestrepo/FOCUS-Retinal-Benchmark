@@ -18,8 +18,6 @@ module load gcc/11.4.1
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-export HF_HOME="$WORK/.cache/huggingface"
-export HF_HUB_CACHE="$HF_HOME/hub"
 
 set -o allexport
 source config/paths.env
@@ -27,6 +25,7 @@ if [ -f .env ]; then
     source .env
 fi
 set +o allexport
+source jobs/common_paths.sh
 
 export HF_HUB_OFFLINE=0
 export PYTHONPATH=$PYTHONPATH:.

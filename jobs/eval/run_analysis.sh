@@ -23,6 +23,7 @@ conda activate llms
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 export PYTHONPATH=$PYTHONPATH:.
 
@@ -34,6 +35,6 @@ python scripts/analyze_benchmark.py \
     --results_dir "$OUTPUT_DIR" \
     --data_dir "$DATA_PATH" \
     --fundus_config config/fundus_datasets.yaml \
-    --output_dir results/analysis
+    --output_dir "${ANALYSIS_DIR}"
 
 echo "Job completed."

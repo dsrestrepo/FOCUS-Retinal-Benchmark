@@ -33,7 +33,6 @@ module load nccl/2.21.5-1-cuda
 eval "$(conda shell.bash hook)"
 conda activate llms
 
-export HF_HOME="$WORK/.cache/huggingface"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export PYTHONPATH="${PYTHONPATH:-}:."
@@ -44,9 +43,10 @@ if [ -f .env ]; then
     source .env
 fi
 set +o allexport
+source jobs/common_paths.sh
 
 CONFIG=${ABLATION_CONFIG:-config/ablations/mllm_prompt_parsing.yaml}
-ABLATION_ROOT=${MLLM_PROMPT_ABLATION_DIR:-"${OUTPUT_DIR%/*}/ablations/mllm_prompt_sensitivity"}
+ABLATION_ROOT=${MLLM_PROMPT_ABLATION_DIR:-"${RESULTS_ROOT}/ablations/mllm_prompt_sensitivity"}
 GRID_INDEX=${SLURM_ARRAY_TASK_ID:?Submit this script as a Slurm array.}
 
 EXPECTED_GRID_SIZE=$(python -c 'import sys,yaml; c=yaml.safe_load(open(sys.argv[1])); print(len(c["models"])*len(c["prompt_variants"]))' "$CONFIG")

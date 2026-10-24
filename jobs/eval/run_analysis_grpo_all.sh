@@ -18,6 +18,7 @@ conda activate llms
 set -o allexport
 source config/paths.env
 set +o allexport
+source jobs/common_paths.sh
 
 export PYTHONPATH=$PYTHONPATH:.
 
@@ -26,21 +27,21 @@ echo "Starting all-task GRPO analysis job..."
 MODELS=$(python -c 'import yaml; print(" ".join(yaml.safe_load(open("config/mllm_config.yaml"))["models"]))')
 
 python scripts/analyze_ft_benchmark.py \
-    --sft_dir results/no_sft \
-    --grpo_dir results/evals_grpo_all \
+    --sft_dir "${RESULTS_ROOT}/no_sft" \
+    --grpo_dir "${GRPO_ALL_EVAL_DIR}" \
     --data_dir "$DATA_PATH" \
     --fundus_config config/fundus_datasets.yaml \
-    --baseline_metrics results/analysis/aggregated_metrics.csv \
-    --output_dir results/analysis_grpo_all \
+    --baseline_metrics "${ANALYSIS_DIR}/aggregated_metrics.csv" \
+    --output_dir "${GRPO_ALL_ANALYSIS_DIR}" \
     --models $MODELS
 
 echo "Estimating paired all-task GRPO-vs-base uncertainty..."
 
-if [ -f results/analysis_grpo_all/aggregated_metrics.csv ]; then
+if [ -f "${GRPO_ALL_ANALYSIS_DIR}/aggregated_metrics.csv" ]; then
     python scripts/analyze_ft_significance.py \
-        --ft_metrics results/analysis_grpo_all/aggregated_metrics.csv \
-        --base_dir results/evals \
-        --output_dir results/analysis_grpo_all/significance \
+        --ft_metrics "${GRPO_ALL_ANALYSIS_DIR}/aggregated_metrics.csv" \
+        --base_dir "${OUTPUT_DIR}" \
+        --output_dir "${GRPO_ALL_ANALYSIS_DIR}/significance" \
         --paper_table_dir paper/tables/grpo_all \
         --metrics auc accuracy ece \
         --n_boot "${FT_SIGNIFICANCE_BOOTSTRAPS:-1000}"
