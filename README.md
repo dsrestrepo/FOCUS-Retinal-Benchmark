@@ -1,14 +1,37 @@
 # FOCUS
 
-<img src="logo/FOCUS-logo.png" alt="FOCUS logo" width="50%">
-
 Official implementation of **FOCUS: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal LLMs**.
 
-**Accepted at NeurIPS 2026, Evaluations & Datasets Track.**
+<img src="logo/FOCUS-logo.png" alt="FOCUS logo" width="50%">
+
+## Accepted at NeurIPS 2026, Evaluations & Datasets Track. 🎉
 
 David Restrepo, Chenwei Wu, Luis Filipe Nakayama, Miguel L. Martins, Stergios Christodoulidis, Maria Vakalopoulou, and Enzo Ferrante.
 
 [Paper (arXiv)](https://arxiv.org/abs/2609.33158) · [NeurIPS poster page](https://neurips.cc/virtual/2026/poster/139808) · [Interactive Arena](https://huggingface.co/spaces/dsrestrepo/FOCUS-Retinal-Benchmark)
+
+## Citation
+
+If you use FOCUS, please cite the paper:
+
+<details>
+<summary><strong>BibTeX citation</strong></summary>
+
+```bibtex
+@misc{restrepo2026focus,
+  title         = {{FOCUS}: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal {LLMs}},
+  author        = {Restrepo, David and Wu, Chenwei and Nakayama, Luis Filipe and Martins, Miguel L. and Christodoulidis, Stergios and Vakalopoulou, Maria and Ferrante, Enzo},
+  year          = {2026},
+  eprint        = {2609.33158},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV},
+  doi           = {10.48550/arXiv.2609.33158},
+  url           = {https://arxiv.org/abs/2609.33158},
+  note          = {Accepted at NeurIPS 2026, Evaluations \& Datasets Track}
+}
+```
+
+</details>
 
 FOCUS is a retinal foundation-model benchmark for evaluating computer vision models, vision-language models, and multimodal large language models on color fundus tasks. The benchmark covers zero-shot evaluation, linear probing, calibration, subgroup analysis, and LoRA adaptation with supervised fine-tuning (SFT) and GRPO. The paper reports baseline evaluations and SFT adaptation; GRPO is an optional extension.
 
@@ -642,28 +665,5 @@ All model examples assume the required checkpoints are already present in the Hu
 
 - Some model checkpoints are gated and require accepting upstream terms before `download_*` jobs can cache them.
 - The benchmark expects benchmark-ready dataset folders under `$DATA_PATH` and cached models under `$HF_HOME`; evaluation and training jobs intentionally run offline.
-
-</details>
-
-## Citation
-
-If you use FOCUS, please cite the paper:
-
-<details>
-<summary><strong>BibTeX citation</strong></summary>
-
-```bibtex
-@misc{restrepo2026focus,
-  title         = {{FOCUS}: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal {LLMs}},
-  author        = {Restrepo, David and Wu, Chenwei and Nakayama, Luis Filipe and Martins, Miguel L. and Christodoulidis, Stergios and Vakalopoulou, Maria and Ferrante, Enzo},
-  year          = {2026},
-  eprint        = {2609.33158},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.CV},
-  doi           = {10.48550/arXiv.2609.33158},
-  url           = {https://arxiv.org/abs/2609.33158},
-  note          = {Accepted at NeurIPS 2026, Evaluations \& Datasets Track}
-}
-```
 
 </details>
