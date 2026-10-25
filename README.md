@@ -1,6 +1,6 @@
 # FOCUS
 
-![FOCUS logo](logo/FOCUS-logo.png)
+<img src="logo/FOCUS-logo.png" alt="FOCUS logo" width="50%">
 
 Official implementation of **FOCUS: Benchmarking Retinal Model Generalization from Foundation Vision Encoders to Multimodal LLMs**.
 
